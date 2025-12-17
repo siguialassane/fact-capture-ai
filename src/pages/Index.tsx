@@ -1,14 +1,20 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MobileScanView } from "@/components/mobile/MobileScanView";
+import { DesktopDashboard } from "@/components/desktop/DesktopDashboard";
 
 const Index = () => {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+  const isMobile = useIsMobile();
+
+  // Show loading state while detecting device
+  if (isMobile === undefined) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
-    </div>
-  );
+    );
+  }
+
+  return isMobile ? <MobileScanView /> : <DesktopDashboard />;
 };
 
 export default Index;
