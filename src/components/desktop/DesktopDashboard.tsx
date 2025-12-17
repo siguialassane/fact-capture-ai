@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { DashboardSidebar } from "./DashboardSidebar";
 import { DocumentViewer } from "./DocumentViewer";
 import { InvoiceDataPanel } from "./InvoiceDataPanel";
 import { getLatestInvoice, type InvoiceData } from "@/lib/db";
@@ -10,6 +11,7 @@ export function DesktopDashboard() {
   const [invoice, setInvoice] = useState<InvoiceData | null>(null);
   const [status, setStatus] = useState<AnalysisStatus>("waiting");
   const [invoiceData, setInvoiceData] = useState(mockInvoiceData);
+  const [activeMenuItem, setActiveMenuItem] = useState("dashboard");
 
   // Use mock data for demo
   useEffect(() => {
@@ -76,22 +78,31 @@ export function DesktopDashboard() {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Left Panel - Document Viewer */}
-      <div className="w-1/2 border-r border-border">
-        <DocumentViewer
-          imageUrl={invoice?.image || null}
-          status={status}
-        />
-      </div>
+      {/* Sidebar */}
+      <DashboardSidebar 
+        activeItem={activeMenuItem} 
+        onItemClick={setActiveMenuItem} 
+      />
 
-      {/* Right Panel - Invoice Data */}
-      <div className="w-1/2">
-        <InvoiceDataPanel
-          status={status}
-          data={invoiceData}
-          onDataChange={handleDataChange}
-          onArticleChange={handleArticleChange}
-        />
+      {/* Main content */}
+      <div className="flex-1 flex">
+        {/* Left Panel - Invoice Data (swapped) */}
+        <div className="flex-1 border-r border-border">
+          <InvoiceDataPanel
+            status={status}
+            data={invoiceData}
+            onDataChange={handleDataChange}
+            onArticleChange={handleArticleChange}
+          />
+        </div>
+
+        {/* Right Panel - Document Viewer (swapped) */}
+        <div className="w-[45%]">
+          <DocumentViewer
+            imageUrl={invoice?.image || null}
+            status={status}
+          />
+        </div>
       </div>
     </div>
   );
