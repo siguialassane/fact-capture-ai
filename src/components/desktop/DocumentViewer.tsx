@@ -5,15 +5,20 @@ import { useState } from "react";
 
 interface DocumentViewerProps {
   imageUrl: string | null;
-  status: "waiting" | "analyzing" | "complete" | "error";
+  pdfUrl?: string | null; // URL ou base64 du PDF original
+  status: "waiting" | "analyzing" | "complete" | "error" | "not_invoice";
 }
 
-export function DocumentViewer({ imageUrl, status }: DocumentViewerProps) {
+export function DocumentViewer({ imageUrl, pdfUrl, status }: DocumentViewerProps) {
   const [zoom, setZoom] = useState(100);
 
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 25, 200));
   const handleZoomOut = () => setZoom((prev) => Math.max(prev - 25, 50));
   const handleReset = () => setZoom(100);
+
+  // Déterminer si on affiche un PDF ou une image
+  const isPdf = !!pdfUrl;
+  const hasDocument = imageUrl || pdfUrl;
 
   return (
     <div className="h-screen flex flex-col bg-muted/30">
@@ -60,8 +65,8 @@ export function DocumentViewer({ imageUrl, status }: DocumentViewerProps) {
       </div>
 
       {/* Document area */}
-      <div className="flex-1 overflow-auto p-6 flex items-center justify-center">
-        {!imageUrl ? (
+      <div className="flex-1 overflow-auto p-6 flex items-start justify-center">
+        {!hasDocument ? (
           <div className="text-center animate-in">
             <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
               <FileText className="h-12 w-12 text-muted-foreground" />
@@ -73,15 +78,41 @@ export function DocumentViewer({ imageUrl, status }: DocumentViewerProps) {
               Scannez une facture avec votre téléphone
             </p>
           </div>
+        ) : isPdf ? (
+          // Affichage PDF natif avec iframe
+          <div className="relative w-full h-full animate-in">
+            <iframe
+              src={pdfUrl}
+              className="w-full h-full rounded-lg shadow-lg bg-white"
+              title="Facture PDF"
+              style={{
+                transform: `scale(${zoom / 100})`,
+                transformOrigin: 'center center',
+                minHeight: '70vh'
+              }}
+            />
+            {status === "analyzing" && (
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center rounded-lg">
+                <div className="text-center">
+                  <LoadingSpinner size="lg" className="mx-auto mb-4" />
+                  <p className="text-foreground font-medium">Analyse en cours...</p>
+                  <p className="text-sm text-muted-foreground">
+                    Extraction des données du PDF
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
+          // Affichage image
           <div
-            className="relative bg-white rounded-lg shadow-lg overflow-hidden transition-transform duration-300 animate-in"
+            className="relative bg-white/5 rounded-lg overflow-hidden transition-transform duration-300 animate-in origin-top"
             style={{ transform: `scale(${zoom / 100})` }}
           >
             <img
               src={imageUrl}
               alt="Facture scannée"
-              className="max-w-full max-h-[70vh] object-contain"
+              className="w-full h-auto object-contain rounded-lg shadow-md"
             />
             {status === "analyzing" && (
               <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
