@@ -62,6 +62,10 @@ export function DesktopDashboard() {
     setSupabaseInvoice(record);
     setIsWaitingForPWA(false); // Photo received, stop waiting
 
+    const isPdf = record.image_base64?.startsWith("data:application/pdf");
+
+    setPdfUrl(isPdf && record.image_base64 ? record.image_base64 : null);
+
     setInvoice({
       id: record.id || 1,
       image: record.image_base64 || "",

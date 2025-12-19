@@ -337,76 +337,95 @@ export function InvoiceDataPanel({
             )}
 
             {/* Main info cards */}
+            {/* Main info cards - Clean Dashboard Style */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2 bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl p-5 border border-violet-200">
-                <div className="flex items-center gap-2 text-sm text-violet-600 mb-1">
-                  <Receipt className="h-4 w-4" />
-                  Montant Total TTC
-                  {data.devise_origine && data.devise_origine !== "XOF" && (
-                    <span className="text-xs bg-violet-200 text-violet-700 px-2 py-0.5 rounded-full">
-                      {data.devise_origine}
-                    </span>
+              {/* Montant Total - Hero Card */}
+              <div className="col-span-2 p-6 rounded-2xl bg-white border border-violet-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+                <div className="absolute -right-6 -top-6 p-6 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity rotate-12">
+                  <Receipt className="w-40 h-40 text-violet-900" />
+                </div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-semibold text-violet-600/80 uppercase tracking-wider">Montant Net à Payer</p>
+                    {data.devise_origine && data.devise_origine !== "XOF" && (
+                      <span className="text-xs font-bold bg-violet-50 text-violet-700 px-2.5 py-1 rounded-md border border-violet-100">
+                        Devise: {data.devise_origine}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <EditableField
+                      value={data.montant_total}
+                      onSave={(val) => onDataChange("montant_total", val)}
+                      className="text-4xl font-bold text-slate-800 tracking-tight"
+                    />
+                  </div>
+                  {data.montant_fcfa && (
+                    <div className="mt-2 text-sm font-medium text-emerald-600 flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                      Soit {data.montant_fcfa} FCFA
+                    </div>
                   )}
                 </div>
-                <div className="text-3xl font-bold text-violet-700">
-                  <EditableField
-                    value={data.montant_total}
-                    onSave={(val) => onDataChange("montant_total", val)}
-                    className="text-3xl font-bold"
-                  />
-                </div>
-                {data.montant_fcfa && (
-                  <div className="mt-2 text-lg font-semibold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg inline-block">
-                    💰 {data.montant_fcfa} FCFA
-                  </div>
-                )}
               </div>
 
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-                  <Building2 className="h-4 w-4" />
-                  Fournisseur
+              {/* Fournisseur */}
+              <div className="p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:border-violet-200 transition-colors group">
+                <div className="flex items-center gap-2.5 mb-2">
+                  <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600 group-hover:bg-blue-100 group-hover:text-blue-700 transition-colors">
+                    <Building2 className="h-4 w-4" />
+                  </div>
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Fournisseur</span>
                 </div>
                 <EditableField
                   value={data.fournisseur}
                   onSave={(val) => onDataChange("fournisseur", val)}
-                  className="font-medium"
+                  className="font-semibold text-slate-700 text-lg truncate block"
                 />
               </div>
 
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-                  <Calendar className="h-4 w-4" />
-                  Date de facture
+              {/* Date */}
+              <div className="p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:border-violet-200 transition-colors group">
+                <div className="flex items-center gap-2.5 mb-2">
+                  <div className="p-1.5 rounded-lg bg-orange-50 text-orange-600 group-hover:bg-orange-100 group-hover:text-orange-700 transition-colors">
+                    <Calendar className="h-4 w-4" />
+                  </div>
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Date</span>
                 </div>
                 <EditableField
                   value={data.date_facture}
                   onSave={(val) => onDataChange("date_facture", val)}
-                  className="font-medium"
+                  className="font-medium text-slate-700"
                 />
               </div>
 
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-                  <Hash className="h-4 w-4" />
-                  Numéro de facture
+              {/* Facture N° */}
+              <div className="p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:border-violet-200 transition-colors group">
+                <div className="flex items-center gap-2.5 mb-2">
+                  <div className="p-1.5 rounded-lg bg-purple-50 text-purple-600 group-hover:bg-purple-100 group-hover:text-purple-700 transition-colors">
+                    <Hash className="h-4 w-4" />
+                  </div>
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">N° Pièce</span>
                 </div>
                 <EditableField
                   value={data.numero_facture}
                   onSave={(val) => onDataChange("numero_facture", val)}
-                  className="font-medium font-mono"
+                  className="font-mono font-medium text-slate-700"
                 />
               </div>
 
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-                  <Receipt className="h-4 w-4" />
-                  TVA
+              {/* TVA / Taxes */}
+              <div className="p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:border-violet-200 transition-colors group">
+                <div className="flex items-center gap-2.5 mb-2">
+                  <div className="p-1.5 rounded-lg bg-slate-100 text-slate-600 group-hover:bg-slate-200 transition-colors">
+                    <Receipt className="h-4 w-4" />
+                  </div>
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">TVA Globale</span>
                 </div>
                 <EditableField
                   value={data.tva}
                   onSave={(val) => onDataChange("tva", val)}
-                  className="font-medium"
+                  className="font-medium text-slate-700"
                 />
               </div>
             </div>
@@ -421,7 +440,9 @@ export function InvoiceDataPanel({
                 <div className="grid grid-cols-2 gap-3">
                   {Object.entries(data.extra_fields).map(([key, value]) => (
                     <div key={key} className="bg-white rounded-lg p-3 border border-blue-100">
-                      <div className="text-xs text-blue-600 mb-1">{key}</div>
+                      <div className="text-sm font-semibold text-blue-700 mb-1 capitalize">
+                        {key.replace(/_/g, " ")}
+                      </div>
                       <EditableField
                         value={value}
                         onSave={(val) => {
@@ -429,7 +450,7 @@ export function InvoiceDataPanel({
                           const newExtraFields = { ...data.extra_fields, [key]: val };
                           onDataChange("extra_fields", JSON.stringify(newExtraFields));
                         }}
-                        className="font-medium text-sm"
+                        className="font-medium text-slate-700"
                       />
                     </div>
                   ))}
