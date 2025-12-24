@@ -1,0 +1,28 @@
+{
+  "name": "fact-capture-backend",
+  "version": "1.0.0",
+  "description": "Backend API pour Fact Capture AI - Analyse de factures avec IA",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "build": "tsc",
+    "start": "bun src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "@hono/zod-validator": "^0.4.2",
+    "@supabase/supabase-js": "^2.49.1",
+    "hono": "^4.6.14",
+    "pdfjs-dist": "^4.10.38",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
+  }
+}
