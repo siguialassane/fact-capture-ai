@@ -47,8 +47,36 @@ export const INVOICE_ANALYSIS_PROMPT = `Tu es un ASSISTANT COMPTABLE. Analyse ce
    - Quantité, unité, prix unitaire
    - Montant HT et TVA par ligne
 
-5. PAIEMENT
-   - Mode: Virement, Chèque, CB, Espèces, Prélèvement
+5. PAIEMENT - ⚠️ TRÈS IMPORTANT POUR LE JOURNAL COMPTABLE
+   Détecte le mode de paiement en analysant ces indices:
+   
+   📌 ESPÈCES (→ mode_paiement: "especes")
+   - Mots clés: "ESPÈCES", "CASH", "COMPTANT", "MONNAIE", "RENDU MONNAIE", "LIQUIDE"
+   - Ticket de caisse sans mention de CB
+   
+   📌 CARTE BANCAIRE (→ mode_paiement: "carte_bancaire")
+   - Mots clés: "CB", "CARTE BANCAIRE", "CARTE", "TPE", "VISA", "MASTERCARD", "CARTE BLEUE"
+   - Mention "Paiement CB", "Payé par carte", numéro d'autorisation
+   
+   📌 VIREMENT (→ mode_paiement: "virement")
+   - Mots clés: "VIREMENT", "TRANSFER", "WIRE", "SEPA", "BANK TRANSFER"
+   - Mention d'IBAN pour le paiement
+   
+   📌 CHÈQUE (→ mode_paiement: "cheque")
+   - Mots clés: "CHÈQUE", "CHEQUE", "CHECK", "CHQ", "N° CHÈQUE"
+   
+   📌 PRÉLÈVEMENT (→ mode_paiement: "prelevement")
+   - Mots clés: "PRÉLÈVEMENT", "PRELEVEMENT", "DIRECT DEBIT", "MANDAT"
+   
+   📌 À CRÉDIT / NON PAYÉ (→ mode_paiement: "credit")
+   - Mots clés: "À CRÉDIT", "NET À PAYER", "À PAYER LE", "ÉCHÉANCE", "NET 30", "30 JOURS"
+   - Facture avec date d'échéance future
+   - Absence de preuve de paiement
+   
+   ⚠️ SI AUCUN MODE DÉTECTÉ:
+   - Ticket de caisse → présumer "especes"
+   - Facture classique avec échéance → présumer "credit"
+   
    - Conditions: Comptant, 30j, 60j fin de mois...
    - Date d'échéance si paiement différé
 
@@ -96,7 +124,7 @@ export const INVOICE_ANALYSIS_PROMPT = `Tu es un ASSISTANT COMPTABLE. Analyse ce
   "acompte": "Acompte versé",
   "reste_a_payer": "Solde dû",
   
-  "mode_paiement": "Virement | Chèque | CB | Espèces",
+  "mode_paiement": "especes | carte_bancaire | virement | cheque | prelevement | credit",
   "conditions_paiement": "30 jours fin de mois",
   "rib_iban": "IBAN si visible",
   

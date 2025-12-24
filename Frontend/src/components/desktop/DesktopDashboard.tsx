@@ -6,6 +6,7 @@ import { AccountingEntryView } from "@/components/accounting";
 import { JournauxView } from "@/components/journals";
 import { GrandLivreView } from "@/components/grand-livre";
 import { LettrageView } from "@/components/lettrage";
+import { EtatsFinanciersView } from "@/components/etats-financiers";
 import { getLatestInvoice } from "@/lib/db";
 import { isOpenRouterConfigured, type FlexibleInvoiceAIResult } from "@/lib/openrouter";
 import {
@@ -397,12 +398,13 @@ export function DesktopDashboard() {
         onItemClick={setActiveMenuItem}
       />
 
-      {/* Vues plein écran pour Journaux, Grand Livre, Lettrage */}
-      {(activeMenuItem === "journaux" || activeMenuItem === "grand-livre" || activeMenuItem === "lettrage") ? (
+      {/* Vues plein écran pour Journaux, Grand Livre, Lettrage, États Financiers */}
+      {(activeMenuItem === "journaux" || activeMenuItem === "grand-livre" || activeMenuItem === "lettrage" || activeMenuItem === "etats-financiers") ? (
         <div className="flex-1 overflow-auto">
           {activeMenuItem === "journaux" && <JournauxView />}
           {activeMenuItem === "grand-livre" && <GrandLivreView />}
           {activeMenuItem === "lettrage" && <LettrageView />}
+          {activeMenuItem === "etats-financiers" && <EtatsFinanciersView />}
         </div>
       ) : (
         /* Layout standard avec panneau gauche/droite */

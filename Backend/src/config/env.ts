@@ -8,6 +8,14 @@ interface Config {
   openrouterModel: string;
   openrouterBaseUrl: string;
 
+  // OpenRouter extended config
+  openrouter: {
+    apiKey: string;
+    model: string;
+    geminiModel: string;
+    baseUrl: string;
+  };
+
   // Supabase
   supabaseUrl: string;
   supabaseAnonKey: string;
@@ -36,6 +44,14 @@ export const config: Config = {
   openrouterApiKey: getEnvVar("OPENROUTER_API_KEY", ""),
   openrouterModel: getEnvVarOptional("OPENROUTER_MODEL", "qwen/qwen3-vl-32b-instruct"),
   openrouterBaseUrl: getEnvVarOptional("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+
+  // OpenRouter extended config (pour faciliter l'accès)
+  openrouter: {
+    apiKey: getEnvVar("OPENROUTER_API_KEY", ""),
+    model: getEnvVarOptional("OPENROUTER_MODEL", "qwen/qwen3-vl-32b-instruct"),
+    geminiModel: getEnvVarOptional("GEMINI_MODEL", "google/gemini-3-flash-preview"),
+    baseUrl: getEnvVarOptional("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+  },
 
   // Supabase
   supabaseUrl: getEnvVar("SUPABASE_URL", ""),

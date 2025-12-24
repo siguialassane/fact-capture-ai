@@ -10,6 +10,7 @@ import {
   BookOpenCheck,
   Link2,
   ScrollText,
+  FileBarChart2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ const menuItems = [
   { id: "journaux", label: "Journaux", icon: ScrollText },
   { id: "grand-livre", label: "Grand Livre", icon: BookOpenCheck },
   { id: "lettrage", label: "Lettrage", icon: Link2 },
+  { id: "etats-financiers", label: "États Financiers", icon: FileBarChart2 },
   { id: "invoices", label: "Factures", icon: FileText },
   { id: "history", label: "Historique", icon: History },
   { id: "settings", label: "Paramètres", icon: Settings },
