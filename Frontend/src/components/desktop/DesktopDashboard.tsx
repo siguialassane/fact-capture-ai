@@ -2,6 +2,7 @@ import { useEffect, useCallback } from "react";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { DocumentViewer } from "./DocumentViewer";
 import { InvoiceDataPanel } from "./InvoiceDataPanel";
+import { PaymentStatusSelector, type StatutPaiement } from "./PaymentStatusSelector";
 import { AccountingEntryView } from "@/components/accounting";
 import { JournauxView } from "@/components/journals";
 import { GrandLivreView } from "@/components/grand-livre";
@@ -40,6 +41,11 @@ export function DesktopDashboard() {
   const [isSavingAccounting, setIsSavingAccounting] = useState(false);
   const [isAccountingSaved, setIsAccountingSaved] = useState(false);
 
+  // Payment status selection state (new flow)
+  const [showPaymentSelector, setShowPaymentSelector] = useState(false);
+  const [confirmedPaymentStatus, setConfirmedPaymentStatus] = useState<StatutPaiement | undefined>(undefined);
+  const [confirmedPartialAmount, setConfirmedPartialAmount] = useState<number | undefined>(undefined);
+
   // Analysis hook
   const {
     status,
@@ -66,22 +72,43 @@ export function DesktopDashboard() {
     onDataRegenerated: setInvoiceData,
   });
 
-  // Function to generate accounting entry
-  const generateAccounting = useCallback(async (data: FlexibleInvoiceAIResult) => {
+  // Function to trigger payment status selection (called when invoice is analyzed)
+  const triggerPaymentStatusSelection = useCallback((data: FlexibleInvoiceAIResult) => {
     if (!data.is_invoice) return;
-    
+    console.log("[Accounting] Affichage du sélecteur de statut de paiement...");
+    setShowPaymentSelector(true);
+  }, []);
+
+  // Function to generate accounting entry with confirmed payment status
+  const generateAccounting = useCallback(async (
+    data: FlexibleInvoiceAIResult,
+    statutPaiement?: StatutPaiement,
+    montantPartiel?: number
+  ) => {
+    if (!data.is_invoice) return;
+
     console.log("[Accounting] Démarrage de la génération d'écriture comptable...");
+    if (statutPaiement) {
+      console.log(`[Accounting] Statut paiement confirmé: ${statutPaiement}`);
+    }
     setAccountingStatus("generating");
-    
+    setShowPaymentSelector(false);
+
     try {
-      const result = await generateAccountingEntry(data as Record<string, unknown>);
-      
+      const result = await generateAccountingEntry(
+        data as Record<string, unknown>,
+        statutPaiement,
+        montantPartiel
+      );
+
       if (result.success && result.data) {
         setAccountingEntry(result.data.ecriture);
         setAccountingReasoning(result.data.reasoning);
         setAccountingSuggestions(result.data.suggestions || []);
         setAccountingStatus("ready");
-        
+        setConfirmedPaymentStatus(statutPaiement);
+        setConfirmedPartialAmount(montantPartiel);
+
         toast({
           title: "Écriture comptable générée",
           description: "Consultez l'onglet 'Écriture Comptable' pour voir le résultat.",
@@ -99,6 +126,21 @@ export function DesktopDashboard() {
       setAccountingStatus("error");
     }
   }, [toast]);
+
+  // Handle payment status confirmation
+  const handlePaymentStatusConfirm = useCallback((status: StatutPaiement, partialAmount?: number) => {
+    if (!invoiceData) return;
+    console.log(`[Accounting] Statut confirmé: ${status}, montant partiel: ${partialAmount}`);
+    generateAccounting(invoiceData, status, partialAmount);
+  }, [invoiceData, generateAccounting]);
+
+  // Handle regenerate with different payment status
+  const handleRegenerateWithNewStatus = useCallback((status: StatutPaiement, partialAmount?: number) => {
+    if (!invoiceData) return;
+    console.log(`[Accounting] Régénération avec nouveau statut: ${status}`);
+    setIsAccountingSaved(false);
+    generateAccounting(invoiceData, status, partialAmount);
+  }, [invoiceData, generateAccounting]);
 
   // Supabase sync hook
   const {
@@ -152,8 +194,8 @@ export function DesktopDashboard() {
               setStatus("not_invoice");
             } else {
               setStatus("complete");
-              // Auto-generate accounting on load
-              generateAccounting(result);
+              // Trigger payment status selection instead of auto-generating
+              triggerPaymentStatusSelection(result);
             }
           } else if (supabaseRecord.image_base64 && isOpenRouterConfigured()) {
             // Analyze if needed
@@ -178,8 +220,8 @@ export function DesktopDashboard() {
             const result = latestInvoice.data as unknown as FlexibleInvoiceAIResult;
             setInvoiceData(result);
             setStatus("complete");
-            // Auto-generate accounting on load
-            generateAccounting(result);
+            // Trigger payment status selection instead of auto-generating
+            triggerPaymentStatusSelection(result);
           } else {
             setStatus("waiting");
           }
@@ -194,7 +236,7 @@ export function DesktopDashboard() {
     };
 
     loadInitialData();
-  }, [loadLatestInvoice, setInvoiceData, setStatus, setInvoice, analyzeImage, generateAccounting]);
+  }, [loadLatestInvoice, setInvoiceData, setStatus, setInvoice, analyzeImage, triggerPaymentStatusSelection]);
 
   // Handle new invoice (reset all state)
   const handleNewInvoice = useCallback(() => {
@@ -208,6 +250,10 @@ export function DesktopDashboard() {
     setAccountingSuggestions([]);
     setIsSavingAccounting(false);
     setIsAccountingSaved(false);
+    // Reset payment status selection
+    setShowPaymentSelector(false);
+    setConfirmedPaymentStatus(undefined);
+    setConfirmedPartialAmount(undefined);
     toast({
       title: "Prêt pour une nouvelle facture",
       description: "Importez un fichier ou attendez un scan depuis le mobile.",
@@ -224,6 +270,10 @@ export function DesktopDashboard() {
       setAccountingEntry(null);
       setIsSavingAccounting(false);
       setIsAccountingSaved(false);
+      // Reset payment status selection
+      setShowPaymentSelector(false);
+      setConfirmedPaymentStatus(undefined);
+      setConfirmedPartialAmount(undefined);
 
       // Update PDF URL for native display
       if (file.type === "application/pdf") {
@@ -246,12 +296,12 @@ export function DesktopDashboard() {
         });
       }
 
-      // Auto-generate accounting entry after analysis
+      // Trigger payment status selection after analysis
       if (result && result.is_invoice) {
-        generateAccounting(result);
+        triggerPaymentStatusSelection(result);
       }
     },
-    [resetChat, analyzeFile, setInvoice, setPdfUrl, generateAccounting]
+    [resetChat, analyzeFile, setInvoice, setPdfUrl, triggerPaymentStatusSelection]
   );
 
   // Handle refine accounting entry
@@ -259,9 +309,9 @@ export function DesktopDashboard() {
     async (feedback: string) => {
       if (!accountingEntry || !invoiceData) return;
 
-      // If empty feedback, regenerate from scratch
+      // If empty feedback, regenerate with same payment status
       if (!feedback.trim()) {
-        generateAccounting(invoiceData);
+        generateAccounting(invoiceData, confirmedPaymentStatus, confirmedPartialAmount);
         return;
       }
 
@@ -292,7 +342,7 @@ export function DesktopDashboard() {
         setAccountingStatus("error");
       }
     },
-    [accountingEntry, invoiceData, generateAccounting, toast]
+    [accountingEntry, invoiceData, generateAccounting, confirmedPaymentStatus, confirmedPartialAmount, toast]
   );
 
   // Handle save accounting entry
@@ -321,7 +371,7 @@ export function DesktopDashboard() {
     try {
       const result = await saveAccountingEntry(accountingEntry, {
         invoiceId: supabaseInvoice?.id,
-        iaModel: "google/gemini-3-flash-preview",
+        iaModel: "deepseek/deepseek-chat",
         iaReasoning: accountingReasoning?.thinking_content,
         iaSuggestions: accountingSuggestions,
       });
@@ -358,7 +408,7 @@ export function DesktopDashboard() {
         console.log("[Accounting Chat] Sending message:", message);
         const result = await chatAboutEntry(message, entry);
         console.log("[Accounting Chat] Response received:", result);
-        
+
         if (result.success && result.reply) {
           return result.reply;
         } else {
@@ -429,18 +479,43 @@ export function DesktopDashboard() {
           </div>
 
           <div className="w-[45%]">
+
             {activeMenuItem === "accounting" ? (
-              <AccountingEntryView
-                entry={accountingEntry}
-                status={accountingStatus}
-                reasoning={accountingReasoning}
-                suggestions={accountingSuggestions}
-                onRefine={handleRefineAccounting}
-                onSave={handleSaveAccounting}
-                onChat={handleAccountingChat}
-                isSaving={isSavingAccounting}
-                isSaved={isAccountingSaved}
-              />
+              showPaymentSelector && invoiceData ? (
+                <div className="h-screen overflow-auto p-6 bg-gradient-to-br from-slate-50 to-violet-50">
+                  <div className="max-w-2xl mx-auto mt-10">
+                    <PaymentStatusSelector
+                      suggestedStatus={(invoiceData as any).statut_paiement_suggere || "inconnu"}
+                      paymentIndices={(invoiceData as any).indices_paiement || []}
+                      paymentMode={(invoiceData as any).mode_paiement}
+                      totalAmount={(() => {
+                        const mt = (invoiceData as any).montant_total;
+                        if (typeof mt === 'number') return mt;
+                        if (typeof mt === 'string') return Number(mt.replace(/[^0-9.,]/g, '').replace(',', '.')) || undefined;
+                        return undefined;
+                      })()}
+                      onConfirm={handlePaymentStatusConfirm}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <AccountingEntryView
+                  entry={accountingEntry}
+                  status={accountingStatus}
+                  reasoning={accountingReasoning}
+                  suggestions={accountingSuggestions}
+                  invoiceData={invoiceData || undefined}
+                  confirmedStatus={confirmedPaymentStatus}
+                  confirmedPartialAmount={confirmedPartialAmount}
+                  onRefine={handleRefineAccounting}
+                  onSave={handleSaveAccounting}
+                  onChat={handleAccountingChat}
+                  isSaving={isSavingAccounting}
+                  isSaved={isAccountingSaved}
+                  onRegenerate={() => setShowPaymentSelector(true)}
+                  onRegenerateWithStatus={handleRegenerateWithNewStatus}
+                />
+              )
             ) : (
               <DocumentViewer
                 imageUrl={pdfUrl ? null : (invoice?.image || null)}

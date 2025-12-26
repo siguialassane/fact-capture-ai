@@ -54,7 +54,7 @@ async function callGeminiAudit(
       "X-Title": "Fact Capture AI - Audit",
     },
     body: JSON.stringify({
-      model: config.openrouter.geminiModel || "google/gemini-3-flash-preview",
+      model: config.openrouter.geminiModel || "deepseek/deepseek-chat",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -73,7 +73,7 @@ async function callGeminiAudit(
     throw new Error(`Erreur API Gemini: ${response.status}`);
   }
 
-  const data = await response.json();
+  const data = await response.json() as any;
   const content = data.choices?.[0]?.message?.content;
 
   if (!content) {
@@ -160,7 +160,7 @@ async function getAuditData(exercice: string) {
 
   // Agréger les soldes par compte
   const soldesParCompte: Record<string, { debit: number; credit: number; solde: number }> = {};
-  
+
   if (soldes) {
     for (const ligne of soldes) {
       const compte = ligne.compte_numero;
@@ -169,7 +169,7 @@ async function getAuditData(exercice: string) {
       }
       soldesParCompte[compte].debit += parseFloat(String(ligne.debit)) || 0;
       soldesParCompte[compte].credit += parseFloat(String(ligne.credit)) || 0;
-      soldesParCompte[compte].solde = 
+      soldesParCompte[compte].solde =
         soldesParCompte[compte].debit - soldesParCompte[compte].credit;
     }
   }
@@ -265,14 +265,14 @@ function construireBilan(soldesParCompte: Record<string, { debit: number; credit
     }
   }
 
-  bilan.actif.total = 
-    bilan.actif.immobilise.total + 
-    bilan.actif.circulant.total + 
+  bilan.actif.total =
+    bilan.actif.immobilise.total +
+    bilan.actif.circulant.total +
     bilan.actif.tresorerie.total;
-  
-  bilan.passif.total = 
-    bilan.passif.capitaux.total + 
-    bilan.passif.dettes.total + 
+
+  bilan.passif.total =
+    bilan.passif.capitaux.total +
+    bilan.passif.dettes.total +
     bilan.passif.tresorerie.total;
 
   bilan.ecart = bilan.actif.total - bilan.passif.total;
@@ -293,7 +293,7 @@ function construireCompteResultat(soldesParCompte: Record<string, { debit: numbe
 
   for (const [compte, data] of Object.entries(soldesParCompte)) {
     const classe = compte.charAt(0);
-    
+
     if (classe === "6") {
       // Charges (solde débiteur)
       const montant = Math.abs(data.solde);
@@ -354,7 +354,7 @@ export async function auditEtatsFinanciers(exercice: string): Promise<AuditResul
 
     // Fusionner les anomalies locales avec celles de Gemini
     result.anomalies = [...anomaliesLocales, ...result.anomalies];
-    
+
     if (anomaliesLocales.length > 0 && result.status === "CONFORME") {
       result.status = "ANOMALIE";
       result.niveau = "CRITIQUE";

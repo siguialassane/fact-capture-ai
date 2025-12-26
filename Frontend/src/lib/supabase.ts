@@ -180,7 +180,7 @@ export async function getLatestInvoiceFromSupabase(): Promise<InvoiceRecord | nu
       .select("*")
       .order("created_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error("Error fetching from Supabase:", error);

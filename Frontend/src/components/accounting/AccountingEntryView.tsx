@@ -1,35 +1,25 @@
 /**
  * AccountingEntryView Component
  * 
- * Affiche l'écriture comptable générée par Gemini
- * avec le raisonnement et les options de modification
+ * Affiche l'écriture comptable générée par l'IA et les articles de la facture côte à côte.
+ * Permet de modifier le statut de paiement et de régénérer l'écriture.
  */
 
 import { useState, useRef, useEffect } from "react";
 import {
   BookOpen,
-  Calculator,
   Check,
-  AlertCircle,
-  Sparkles,
   RefreshCw,
   Save,
-  ChevronDown,
-  ChevronUp,
-  Brain,
-  Clock,
-  FileText,
-  Building2,
-  Calendar,
-  Hash,
-  Send,
-  Loader2,
   MessageCircle,
-  CheckCircle,
-  ArrowRight,
+  Table as TableIcon,
+  CreditCard,
+  AlertCircle,
+  CheckCircle2,
+  List,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -39,10 +29,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import type { JournalEntry, AccountingStatus } from "@/lib/accounting-api";
-import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
+import type { JournalEntry, AccountingStatus, StatutPaiement } from "@/lib/accounting-api";
+import type { FlexibleInvoiceAIResult } from "@/lib/openrouter";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -57,9 +48,14 @@ interface AccountingEntryViewProps {
     duration_ms?: number;
   };
   suggestions?: string[];
+  invoiceData?: FlexibleInvoiceAIResult; // Données brutes de la facture (articles)
+  confirmedStatus?: StatutPaiement; // Statut actuel confirmé
+  confirmedPartialAmount?: number;
   onRefine?: (feedback: string) => void;
   onSave?: () => void;
   onChat?: (message: string, entry: JournalEntry) => Promise<string>;
+  onRegenerate?: () => void; // Simple regenerate (legacy)
+  onRegenerateWithStatus?: (status: StatutPaiement, partialAmount?: number) => void; // New regenerate
   isSaving?: boolean;
   isSaved?: boolean;
 }
@@ -69,496 +65,330 @@ export function AccountingEntryView({
   status,
   reasoning,
   suggestions,
+  invoiceData,
+  confirmedStatus,
+  confirmedPartialAmount,
   onRefine,
   onSave,
   onChat,
+  onRegenerate,
+  onRegenerateWithStatus,
   isSaving = false,
   isSaved = false,
 }: AccountingEntryViewProps) {
-  const [showReasoning, setShowReasoning] = useState(false);
-  const [refineFeedback, setRefineFeedback] = useState("");
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatInput, setChatInput] = useState("");
-  const [isChatLoading, setIsChatLoading] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<"entry" | "reasoning">("entry");
+  const [showChat, setShowChat] = useState(false);
 
-  // Scroll to bottom when new messages
+  // State pour le changement de statut
+  const [newStatus, setNewStatus] = useState<StatutPaiement | undefined>(confirmedStatus);
+  const [newPartialAmount, setNewPartialAmount] = useState<number | undefined>(confirmedPartialAmount);
+
+  // Mettre à jour le state local si la prop change
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages]);
+    setNewStatus(confirmedStatus);
+    setNewPartialAmount(confirmedPartialAmount);
+  }, [confirmedStatus, confirmedPartialAmount]);
 
-  // Handle chat send
-  const handleSendChat = async () => {
-    if (!chatInput.trim() || !entry || !onChat) return;
-
-    const userMessage = chatInput.trim();
-    setChatInput("");
-    setChatMessages(prev => [...prev, { role: "user", content: userMessage }]);
-    setIsChatLoading(true);
-
-    try {
-      const response = await onChat(userMessage, entry);
-      setChatMessages(prev => [...prev, { role: "assistant", content: response }]);
-    } catch (error) {
-      setChatMessages(prev => [...prev, { 
-        role: "assistant", 
-        content: "Désolé, une erreur s'est produite. Veuillez réessayer." 
-      }]);
-    } finally {
-      setIsChatLoading(false);
+  const handleRegenerateClick = () => {
+    if (newStatus && onRegenerateWithStatus) {
+      onRegenerateWithStatus(newStatus, newStatus === "partiel" ? newPartialAmount : undefined);
+    } else if (onRegenerate) {
+      onRegenerate();
     }
   };
 
-  // État d'attente
-  if (status === "idle") {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-8">
-        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center mb-6">
-          <BookOpen className="h-12 w-12 text-emerald-600" />
-        </div>
-        <h2 className="text-2xl font-bold text-slate-800 mb-3">
-          Écritures Comptables
-        </h2>
-        <p className="text-slate-500 max-w-md mb-6">
-          Analysez une facture pour générer automatiquement l'écriture comptable
-          correspondante selon le plan SYSCOHADA.
-        </p>
-        <div className="flex items-center gap-2 text-sm text-slate-400">
-          <Sparkles className="h-4 w-4" />
-          <span>Propulsé par Gemini avec mode raisonnement</span>
-        </div>
-      </div>
-    );
-  }
+  const formatAmount = (amount?: number | string) => {
+    if (amount === undefined || amount === null) return "-";
+    const num = typeof amount === "string" ? parseFloat(amount.replace(/[^0-9.-]+/g, "")) : amount;
+    return new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 0 }).format(num);
+  };
 
-  // État de génération
-  if (status === "generating" || status === "refining") {
+  if (status === "generating") {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-8">
-        <div className="relative mb-6">
-          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-violet-100 to-purple-100 flex items-center justify-center">
-            <Brain className="h-12 w-12 text-violet-600 animate-pulse" />
-          </div>
-          <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-2 shadow-lg">
-            <Loader2 className="h-6 w-6 text-violet-600 animate-spin" />
-          </div>
+      <div className="flex flex-col items-center justify-center p-12 space-y-4 text-center h-full">
+        <div className="relative">
+          <div className="absolute inset-0 bg-violet-500/20 blur-xl rounded-full animate-pulse" />
+          <RefreshCw className="h-16 w-16 text-violet-600 animate-spin relative z-10" />
         </div>
-        <h2 className="text-xl font-bold text-slate-800 mb-2">
-          {status === "generating" ? "Génération en cours..." : "Affinement en cours..."}
-        </h2>
+        <h3 className="text-xl font-semibold text-slate-800">Génération de l'écriture...</h3>
         <p className="text-slate-500 max-w-md">
-          Gemini analyse la facture et construit l'écriture comptable
-          en utilisant le mode raisonnement approfondi.
+          DeepSeek analyse les données pour produire une écriture comptable SYSCOHADA équilibrée.
         </p>
       </div>
     );
   }
 
-  // État d'erreur
-  if (status === "error" || !entry) {
+  if (status === "error") {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-8">
-        <div className="w-24 h-24 rounded-full bg-red-100 flex items-center justify-center mb-6">
-          <AlertCircle className="h-12 w-12 text-red-600" />
-        </div>
-        <h2 className="text-xl font-bold text-slate-800 mb-2">
-          Erreur de génération
-        </h2>
-        <p className="text-slate-500 max-w-md">
-          Impossible de générer l'écriture comptable. Vérifiez les données de la facture.
-        </p>
+      <div className="flex flex-col items-center justify-center p-12 space-y-4 text-center h-full text-red-600">
+        <AlertCircle className="h-16 w-16" />
+        <h3 className="text-xl font-semibold">Erreur de génération</h3>
+        <p className="text-slate-600">Impossible de générer l'écriture comptable.</p>
+        <Button onClick={onRegenerate} variant="outline" className="mt-4">
+          <RefreshCw className="mr-2 h-4 w-4" /> Réessayer
+        </Button>
       </div>
     );
   }
 
-  // Affichage de l'écriture
+  if (!entry) return null;
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="h-full flex flex-col bg-slate-50/50 overflow-hidden">
+
       {/* Header */}
-      <div className="border-b bg-gradient-to-r from-emerald-50 to-teal-50 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-emerald-100">
-              <Calculator className="h-6 w-6 text-emerald-700" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-slate-800">Écriture Comptable</h2>
-              <p className="text-sm text-slate-500">{entry.libelle_general}</p>
+      <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-sidebar-border/50">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-emerald-100 rounded-lg">
+            <BookOpen className="h-5 w-5 text-emerald-700" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800">Comptabilisation</h2>
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <span className="font-mono">{entry.journal_code}</span>
+              <span>•</span>
+              <span>{entry.journal_libelle}</span>
             </div>
           </div>
-          <Badge 
-            variant={entry.equilibre ? "default" : "destructive"}
-            className={entry.equilibre ? "bg-emerald-500" : ""}
-          >
-            {entry.equilibre ? (
-              <>
-                <Check className="h-3 w-3 mr-1" />
-                Équilibrée
-              </>
-            ) : (
-              <>
-                <AlertCircle className="h-3 w-3 mr-1" />
-                Déséquilibrée
-              </>
-            )}
-          </Badge>
         </div>
 
-        {/* Infos clés */}
-        <div className="grid grid-cols-4 gap-4">
-          <div className="flex items-center gap-2 text-sm">
-            <Calendar className="h-4 w-4 text-slate-400" />
-            <span className="text-slate-600">Date:</span>
-            <span className="font-medium">{entry.date_piece}</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <Hash className="h-4 w-4 text-slate-400" />
-            <span className="text-slate-600">N° Pièce:</span>
-            <span className="font-mono font-medium">{entry.numero_piece}</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <FileText className="h-4 w-4 text-slate-400" />
-            <span className="text-slate-600">Journal:</span>
-            <span className="font-medium">{entry.journal_code} - {entry.journal_libelle}</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <Building2 className="h-4 w-4 text-slate-400" />
-            <span className="text-slate-600">Tiers:</span>
-            <span className="font-medium">{entry.tiers_nom || "Non identifié"}</span>
-          </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowChat(!showChat)}
+            className={showChat ? "bg-violet-50 border-violet-200 text-violet-700" : ""}
+          >
+            <MessageCircle className="h-4 w-4 mr-2" />
+            Assistant
+          </Button>
+          <Button
+            onClick={onSave}
+            disabled={isSaving || isSaved}
+            className={isSaved ? "bg-emerald-600 hover:bg-emerald-700" : "bg-violet-600 hover:bg-violet-700"}
+          >
+            {isSaving ? (
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+            ) : isSaved ? (
+              <Check className="h-4 w-4 mr-2" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            {isSaved ? "Enregistré" : "Enregistrer"}
+          </Button>
         </div>
       </div>
 
-      {/* Contenu principal */}
-      <div className="flex-1 overflow-auto p-6 space-y-6">
-        {/* Tableau des lignes d'écriture */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <BookOpen className="h-5 w-5" />
-              Lignes d'écriture
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50">
-                    <TableHead className="w-[120px]">Compte</TableHead>
-                    <TableHead>Libellé</TableHead>
-                    <TableHead className="text-right w-[150px]">Débit</TableHead>
-                    <TableHead className="text-right w-[150px]">Crédit</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {entry.lignes.map((ligne, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="font-mono font-medium text-violet-700">
-                        {ligne.numero_compte}
+      {/* Main Content - Grid Layout */}
+      <div className="flex-1 overflow-auto p-6">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 h-full">
+
+          {/* COLONNE GAUCHE: Écriture Comptable + Gestion Statut */}
+          <div className="flex flex-col gap-6">
+
+            {/* Carte Écriture */}
+            <Card className="border-sidebar-border/50 shadow-sm flex-grow">
+              <CardHeader className="bg-slate-50 border-b border-sidebar-border/50 py-3">
+                <CardTitle className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 text-violet-500" />
+                  Écriture Générée par DeepSeek
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
+                      <TableHead className="w-[80px]">Compte</TableHead>
+                      <TableHead>Libellé</TableHead>
+                      <TableHead className="text-right w-[120px]">Débit</TableHead>
+                      <TableHead className="text-right w-[120px]">Crédit</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {entry.lignes.map((ligne, idx) => (
+                      <TableRow key={idx} className="hover:bg-violet-50/30 transition-colors">
+                        <TableCell className="font-mono font-medium text-violet-700">
+                          {ligne.numero_compte}
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium text-slate-700">{ligne.libelle_compte}</div>
+                          <div className="text-xs text-slate-500 mt-0.5">{ligne.libelle_ligne}</div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono tabular-nums text-slate-700">
+                          {ligne.debit > 0 ? formatAmount(ligne.debit) : "-"}
+                        </TableCell>
+                        <TableCell className="text-right font-mono tabular-nums text-slate-700">
+                          {ligne.credit > 0 ? formatAmount(ligne.credit) : "-"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {/* Totaux */}
+                    <TableRow className="bg-slate-50 font-semibold border-t-2 border-slate-200">
+                      <TableCell colSpan={2} className="text-right pr-4">TOTAUX</TableCell>
+                      <TableCell className="text-right font-mono text-emerald-700">
+                        {formatAmount(entry.total_debit)}
                       </TableCell>
-                      <TableCell>
-                        <div className="font-medium text-slate-700">{ligne.libelle_compte}</div>
-                        <div className="text-sm text-slate-500">{ligne.libelle_ligne}</div>
-                      </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {ligne.debit > 0 ? (
-                          <span className="text-blue-600 font-medium">
-                            {ligne.debit.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}
-                          </span>
-                        ) : (
-                          <span className="text-slate-300">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {ligne.credit > 0 ? (
-                          <span className="text-emerald-600 font-medium">
-                            {ligne.credit.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}
-                          </span>
-                        ) : (
-                          <span className="text-slate-300">-</span>
-                        )}
+                      <TableCell className="text-right font-mono text-emerald-700">
+                        {formatAmount(entry.total_credit)}
                       </TableCell>
                     </TableRow>
-                  ))}
-                  {/* Ligne de total */}
-                  <TableRow className="bg-slate-50 font-bold">
-                    <TableCell colSpan={2} className="text-right">
-                      TOTAUX
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-blue-700">
-                      {entry.total_debit.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-emerald-700">
-                      {entry.total_credit.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* BOUTONS D'ACTION - Bien visible après le tableau */}
-            <div className="mt-6 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg border border-emerald-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {isSaved ? (
-                    <div className="flex items-center gap-2 text-emerald-700">
-                      <CheckCircle className="h-5 w-5" />
-                      <span className="font-medium">Écriture enregistrée !</span>
-                    </div>
-                  ) : (
-                    <div className="text-sm text-slate-600">
-                      {entry.equilibre ? (
-                        <span className="flex items-center gap-2">
-                          <Check className="h-4 w-4 text-emerald-600" />
-                          Écriture équilibrée, prête à être enregistrée
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-2 text-red-600">
-                          <AlertCircle className="h-4 w-4" />
-                          Écriture déséquilibrée - Correction nécessaire
-                        </span>
-                      )}
-                    </div>
-                  )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+              {entry.equilibre && (
+                <div className="bg-emerald-50 border-t border-emerald-100 p-2 flex justify-center">
+                  <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-200 gap-1.5">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Écriture équilibrée
+                  </Badge>
                 </div>
-                <div className="flex gap-3">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => onRefine?.("")}
-                    disabled={isSaving}
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Régénérer
-                  </Button>
-                  <Button 
-                    onClick={onSave} 
-                    disabled={!entry.equilibre || isSaving || isSaved}
-                    className={`${isSaved ? 'bg-emerald-700' : 'bg-emerald-600 hover:bg-emerald-700'} min-w-[200px]`}
-                    size="lg"
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Enregistrement...
-                      </>
-                    ) : isSaved ? (
-                      <>
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Enregistrée ✓
-                      </>
-                    ) : (
-                      <>
-                        <Save className="h-4 w-4 mr-2" />
-                        💾 Enregistrer l'écriture
-                      </>
-                    )}
-                  </Button>
+              )}
+            </Card>
+
+            {/* Carte Gestion Statut Paiement (ASCII Art Style UI) */}
+            <Card className="border-2 border-slate-200 shadow-sm overflow-hidden transform transition-all hover:border-violet-300">
+              <div className="bg-slate-900 text-white p-3 font-mono text-sm flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-emerald-400" />
+                  <span>STATUS_PAIEMENT.CONFIG</span>
+                </div>
+                <div className="flex gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+                  <div className="w-2.5 h-2.5 rounded-full bg-yellow-500"></div>
+                  <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
                 </div>
               </div>
-              
-              {/* Prochaine étape après enregistrement */}
-              {isSaved && (
-                <div className="mt-4 pt-4 border-t border-emerald-200">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-emerald-700">
-                      <strong>Prochaine étape :</strong> Vous pouvez maintenant scanner une nouvelle facture 
-                      ou consulter vos écritures dans le tableau de bord.
+
+              <CardContent className="p-5 bg-white">
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-800 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div>
+                    <strong>Statut actuel : </strong>
+                    {confirmedStatus === "paye" && "✅ Paiement reçu (Journal BQ)"}
+                    {confirmedStatus === "non_paye" && "⏳ Non payé / À crédit (Journal ACHATS/VENTES)"}
+                    {confirmedStatus === "partiel" && "💰 Paiement partiel (Mixte)"}
+                    {(!confirmedStatus || confirmedStatus === "inconnu") && "❓ Inconnu"}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <Label className="text-base font-semibold text-slate-700">
+                    🔄 Changer le statut de paiement :
+                  </Label>
+
+                  <RadioGroup
+                    value={newStatus}
+                    onValueChange={(v) => setNewStatus(v as StatutPaiement)}
+                    className="flex flex-col space-y-2"
+                  >
+                    <div className="flex items-center space-x-2 border p-3 rounded-md hover:bg-slate-50 cursor-pointer transition-colors">
+                      <RadioGroupItem value="paye" id="r1" />
+                      <Label htmlFor="r1" className="cursor-pointer flex-1">
+                        ✅ Paiement reçu (Comptant/Banque)
+                      </Label>
                     </div>
-                    <Button variant="outline" className="gap-2">
-                      Nouvelle facture
-                      <ArrowRight className="h-4 w-4" />
+                    <div className="flex items-center space-x-2 border p-3 rounded-md hover:bg-slate-50 cursor-pointer transition-colors">
+                      <RadioGroupItem value="non_paye" id="r2" />
+                      <Label htmlFor="r2" className="cursor-pointer flex-1">
+                        ⏳ Non payé (Créance/Dette)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2 border p-3 rounded-md hover:bg-slate-50 cursor-pointer transition-colors">
+                      <RadioGroupItem value="partiel" id="r3" />
+                      <Label htmlFor="r3" className="cursor-pointer flex-1">
+                        💰 Paiement partiel
+                      </Label>
+                    </div>
+                  </RadioGroup>
+
+                  {newStatus === "partiel" && (
+                    <div className="ml-6 pl-4 border-l-2 border-slate-200">
+                      <Label htmlFor="partial-amount-edit" className="text-sm">Montant payé :</Label>
+                      <Input
+                        id="partial-amount-edit"
+                        type="number"
+                        value={newPartialAmount || ""}
+                        onChange={(e) => setNewPartialAmount(parseFloat(e.target.value))}
+                        className="mt-1"
+                        placeholder="Ex: 500000"
+                      />
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex justify-end">
+                    <Button
+                      onClick={handleRegenerateClick}
+                      variant="outline"
+                      className="border-violet-200 hover:bg-violet-50 text-violet-700"
+                      disabled={newStatus === confirmedStatus && newPartialAmount === confirmedPartialAmount}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Régénérer l'écriture
                     </Button>
                   </div>
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* CHAT AVEC GEMINI - Pour poser des questions sur l'écriture */}
-        {onChat && (
-          <Card className="border-blue-200">
-            <CardHeader className="pb-3 bg-gradient-to-r from-blue-50 to-indigo-50">
-              <CardTitle className="text-lg flex items-center gap-2 text-blue-700">
-                <MessageCircle className="h-5 w-5" />
-                Discuter avec Gemini sur cette écriture
-              </CardTitle>
-              <p className="text-sm text-blue-600 mt-1">
-                Posez des questions sur l'écriture générée, demandez des explications ou des modifications
-              </p>
-            </CardHeader>
-            <CardContent className="pt-4">
-              {/* Messages de chat */}
-              <div className="space-y-3 max-h-[250px] overflow-auto mb-4">
-                {chatMessages.length === 0 ? (
-                  <div className="text-center py-6 text-slate-400">
-                    <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">Posez une question sur l'écriture comptable</p>
-                    <div className="mt-3 flex flex-wrap justify-center gap-2">
-                      {[
-                        "Pourquoi ce compte ?",
-                        "La TVA est-elle correcte ?",
-                        "Explique cette écriture",
-                      ].map((suggestion, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setChatInput(suggestion)}
-                          className="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full hover:bg-blue-100 transition"
-                        >
-                          {suggestion}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  chatMessages.map((msg, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-3 rounded-lg ${
-                        msg.role === "user"
-                          ? "bg-blue-100 text-blue-900 ml-8"
-                          : "bg-slate-100 text-slate-800 mr-8"
-                      }`}
-                    >
-                      <div className="text-xs font-medium mb-1 opacity-70">
-                        {msg.role === "user" ? "Vous" : "Gemini"}
-                      </div>
-                      {msg.role === "assistant" ? (
-                        <MarkdownRenderer content={msg.content} />
-                      ) : (
-                        <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
-                      )}
-                    </div>
-                  ))
-                )}
-                {isChatLoading && (
-                  <div className="bg-slate-100 text-slate-800 mr-8 p-3 rounded-lg">
-                    <div className="text-xs font-medium mb-1 opacity-70">Gemini</div>
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-sm">Réflexion en cours...</span>
-                    </div>
-                  </div>
-                )}
-                <div ref={chatEndRef} />
-              </div>
-
-              {/* Input de chat */}
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Posez une question sur cette écriture..."
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendChat()}
-                  disabled={isChatLoading}
-                  className="flex-1"
-                />
-                <Button 
-                  onClick={handleSendChat} 
-                  disabled={!chatInput.trim() || isChatLoading}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Zone de correction si besoin */}
-        {onRefine && !isSaved && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <RefreshCw className="h-5 w-5" />
-                Demander une correction
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Textarea
-                placeholder="Ex: Le compte de charge devrait être 6054 Fournitures informatiques, pas 6011..."
-                value={refineFeedback}
-                onChange={(e) => setRefineFeedback(e.target.value)}
-                rows={3}
-              />
-              <Button
-                onClick={() => {
-                  if (refineFeedback.trim()) {
-                    onRefine(refineFeedback);
-                    setRefineFeedback("");
-                  }
-                }}
-                disabled={!refineFeedback.trim()}
-                className="gap-2"
-              >
-                <Send className="h-4 w-4" />
-                Demander correction
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Raisonnement Gemini (dépliable) */}
-        {reasoning && (
-          <Card className="border-violet-200 bg-violet-50/30">
-            <CardHeader 
-              className="pb-3 cursor-pointer"
-              onClick={() => setShowReasoning(!showReasoning)}
-            >
-              <CardTitle className="text-lg flex items-center justify-between">
-                <div className="flex items-center gap-2 text-violet-700">
-                  <Brain className="h-5 w-5" />
-                  Raisonnement Gemini
-                  {reasoning.duration_ms && (
-                    <span className="text-xs font-normal text-violet-500 flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {(reasoning.duration_ms / 1000).toFixed(1)}s
-                    </span>
-                  )}
-                </div>
-                {showReasoning ? (
-                  <ChevronUp className="h-5 w-5 text-violet-500" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 text-violet-500" />
-                )}
-              </CardTitle>
-            </CardHeader>
-            {showReasoning && (
-              <CardContent>
-                <div className="bg-white rounded-lg p-4 border border-violet-200 text-sm text-slate-600 whitespace-pre-wrap max-h-[300px] overflow-auto">
-                  {reasoning.thinking_content}
-                </div>
               </CardContent>
-            )}
-          </Card>
-        )}
+            </Card>
 
-        {/* Commentaires et suggestions */}
-        {(entry.commentaires || (suggestions && suggestions.length > 0)) && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Sparkles className="h-5 w-5" />
-                Commentaires & Suggestions
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {entry.commentaires && (
-                <p className="text-slate-600">{entry.commentaires}</p>
-              )}
-              {suggestions && suggestions.length > 0 && (
-                <ul className="space-y-1">
-                  {suggestions.map((s, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-slate-600">
-                      <span className="text-emerald-500">•</span>
-                      {s}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        )}
+          </div>
+
+          {/* COLONNE DROITE: Articles extraits par Qwen */}
+          <div className="flex flex-col gap-4 h-full overflow-hidden">
+            <Card className="border-sidebar-border/50 shadow-sm h-full flex flex-col">
+              <CardHeader className="bg-slate-50 border-b border-sidebar-border/50 py-3">
+                <CardTitle className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                  <List className="h-4 w-4 text-blue-500" />
+                  Articles extraits (Qwen)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 flex-1 overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="text-right w-[60px]">Qté</TableHead>
+                      <TableHead className="text-right w-[100px]">P.U.</TableHead>
+                      <TableHead className="text-right w-[110px]">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(invoiceData as any)?.lignes?.length > 0 ? (
+                      (invoiceData as any).lignes.map((article: any, idx: number) => (
+                        <TableRow key={idx}>
+                          <TableCell className="font-medium text-slate-700 text-sm">
+                            {article.description || "Article sans nom"}
+                          </TableCell>
+                          <TableCell className="text-right text-slate-500">
+                            {article.quantite}
+                          </TableCell>
+                          <TableCell className="text-right text-slate-500 tabular-nums">
+                            {formatAmount(article.prix_unitaire)}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold text-slate-700 tabular-nums">
+                            {formatAmount(article.montant_total)}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8 text-slate-400">
+                          Aucun article détecté ou format de données inconnu.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+              <CardFooter className="bg-slate-50 border-t border-sidebar-border/50 py-3 flex justify-between">
+                <span className="text-sm text-slate-500">Total HT</span>
+                <span className="font-bold text-slate-800">
+                  {formatAmount((invoiceData as any)?.montant_ht)} FCFA
+                </span>
+              </CardFooter>
+            </Card>
+          </div>
+
+        </div>
       </div>
     </div>
   );

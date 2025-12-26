@@ -16,6 +16,8 @@ const accounting = new Hono();
 const GenerateEntrySchema = z.object({
   invoiceData: z.record(z.any()), // FlexibleInvoiceAIResult
   invoiceId: z.number().optional(), // ID de la facture source
+  statutPaiement: z.enum(["paye", "non_paye", "partiel", "inconnu"]).optional(), // Statut confirmé par l'utilisateur
+  montantPartielPaye: z.number().optional(), // Montant déjà payé si paiement partiel
 });
 
 // Schema pour l'affinement d'écriture
@@ -84,15 +86,23 @@ accounting.post(
   "/generate",
   zValidator("json", GenerateEntrySchema),
   async (c) => {
-    const { invoiceData, invoiceId } = c.req.valid("json");
+    const { invoiceData, invoiceId, statutPaiement, montantPartielPaye } = c.req.valid("json");
 
     console.log("[Accounting API] Génération d'écriture comptable...");
+    if (statutPaiement) {
+      console.log(`[Accounting API] Statut paiement confirmé: ${statutPaiement}`);
+    }
 
     try {
       // Récupérer le contexte comptable depuis la base de données
       const accountingContext = await getAccountingContext();
-      
-      const result: AccountingResult = await generateAccountingEntry(invoiceData as any, accountingContext);
+
+      const result: AccountingResult = await generateAccountingEntry(
+        invoiceData as any,
+        accountingContext,
+        statutPaiement,
+        montantPartielPaye
+      );
 
       if (!result.success) {
         return c.json({
@@ -292,7 +302,7 @@ accounting.post(
           total_credit: ecriture.total_credit,
           statut: "brouillon",
           genere_par_ia: true,
-          ia_model: iaModel || "google/gemini-3-flash-preview",
+          ia_model: iaModel || "deepseek/deepseek-chat",
           ia_reasoning: iaReasoning || ecriture.reasoning,
           ia_suggestions: iaSuggestions ? JSON.stringify(iaSuggestions) : null,
           notes: ecriture.commentaires,
@@ -441,13 +451,13 @@ accounting.get("/duplicates", async (c) => {
 accounting.get("/tiers", async (c) => {
   try {
     const type = c.req.query("type"); // 'fournisseur' ou 'client'
-    
+
     let query = supabase
       .from("tiers")
       .select("id, code, nom, type_tiers, numero_compte_defaut, adresse, ville, pays")
       .eq("actif", true)
       .order("nom");
-    
+
     if (type) {
       query = query.eq("type_tiers", type);
     }
@@ -532,7 +542,7 @@ accounting.post(
 
     try {
       const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-      const GEMINI_MODEL = process.env.GEMINI_MODEL || "google/gemini-3-flash-preview";
+      const GEMINI_MODEL = process.env.GEMINI_MODEL || "deepseek/deepseek-chat";
 
       if (!OPENROUTER_API_KEY) {
         return c.json({

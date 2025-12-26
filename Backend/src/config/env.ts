@@ -49,7 +49,7 @@ export const config: Config = {
   openrouter: {
     apiKey: getEnvVar("OPENROUTER_API_KEY", ""),
     model: getEnvVarOptional("OPENROUTER_MODEL", "qwen/qwen3-vl-32b-instruct"),
-    geminiModel: getEnvVarOptional("GEMINI_MODEL", "google/gemini-3-flash-preview"),
+    geminiModel: getEnvVarOptional("GEMINI_MODEL", "deepseek/deepseek-chat"),
     baseUrl: getEnvVarOptional("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
   },
 
