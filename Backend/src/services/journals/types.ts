@@ -34,12 +34,12 @@ export interface JournalSequence {
 export interface JournalSummary {
   journal_code: JournalCode;
   journal_libelle: string;
-  periode: string; // Format: "2025-12"
+  periode: string; // Format: "2025-12" ou "all" pour toutes périodes
   nb_ecritures: number;
   total_debit: number;
   total_credit: number;
-  premiere_piece: string;
-  derniere_piece: string;
+  premiere_piece?: string | null;
+  derniere_piece?: string | null;
 }
 
 /** Écriture dans un journal */

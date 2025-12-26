@@ -196,6 +196,7 @@ journaux.post(
       }, 400);
     }
 
+
     return c.json({
       success: true,
       data: result.entry,
@@ -204,4 +205,122 @@ journaux.post(
   }
 );
 
+// ============== NOUVEAUX ENDPOINTS RÉGÉNÉRATION IA ==============
+
+import {
+  regenerateEntryForJournal,
+  saveRegeneratedEntry,
+  type RegenerateAdditionalInfo,
+  type RegeneratedEntry,
+} from "../services/journals/regenerate-entry";
+
+// Schema pour régénération d'écriture
+const RegenerateEntrySchema = z.object({
+  entry_id: z.string().uuid(),
+  target_journal: z.enum(["AC", "VE", "BQ", "CA", "OD"]),
+  additional_info: z.object({
+    new_tiers_name: z.string().optional(),
+    new_tiers_type: z.enum(["client", "fournisseur"]),
+    payment_mode: z.enum(["especes", "carte_bancaire", "virement", "cheque", "credit"]),
+    reason: z.string(),
+  }),
+});
+
+/**
+ * POST /journals/regenerate-entry
+ * Régénère une écriture pour un nouveau journal avec DeepSeek
+ * Retourne une proposition d'écriture (preview)
+ */
+journaux.post(
+  "/regenerate-entry",
+  zValidator("json", RegenerateEntrySchema),
+  async (c) => {
+    const { entry_id, target_journal, additional_info } = c.req.valid("json");
+
+    console.log(`[Journals API] Régénération demandée: ${entry_id} → ${target_journal}`);
+
+    const result = await regenerateEntryForJournal({
+      entry_id,
+      target_journal: target_journal as JournalCode,
+      additional_info: additional_info as RegenerateAdditionalInfo,
+    });
+
+    if (!result.success) {
+      return c.json({
+        success: false,
+        error: result.error,
+      }, 400);
+    }
+
+    return c.json({
+      success: true,
+      data: {
+        proposed_entry: result.proposed_entry,
+        reasoning: result.reasoning,
+        changes_summary: result.changes_summary,
+      },
+    });
+  }
+);
+
+// Schema pour sauvegarde de l'écriture régénérée
+const SaveRegeneratedSchema = z.object({
+  old_entry_id: z.string().uuid(),
+  new_entry: z.object({
+    date_piece: z.string(),
+    numero_piece: z.string(),
+    journal_code: z.enum(["AC", "VE", "BQ", "CA", "OD"]),
+    journal_libelle: z.string(),
+    libelle_general: z.string(),
+    tiers_code: z.string().optional(),
+    tiers_nom: z.string().optional(),
+    lignes: z.array(z.object({
+      numero_compte: z.string(),
+      libelle_compte: z.string(),
+      libelle_ligne: z.string(),
+      debit: z.number(),
+      credit: z.number(),
+    })),
+    total_debit: z.number(),
+    total_credit: z.number(),
+    equilibre: z.boolean(),
+    commentaires: z.string().optional(),
+  }),
+});
+
+/**
+ * POST /journals/save-regenerated
+ * Sauvegarde l'écriture régénérée et supprime l'ancienne
+ */
+journaux.post(
+  "/save-regenerated",
+  zValidator("json", SaveRegeneratedSchema),
+  async (c) => {
+    const { old_entry_id, new_entry } = c.req.valid("json");
+
+    console.log(`[Journals API] Sauvegarde régénération: ${old_entry_id}`);
+
+    const result = await saveRegeneratedEntry(
+      old_entry_id,
+      new_entry as RegeneratedEntry
+    );
+
+    if (!result.success) {
+      return c.json({
+        success: false,
+        error: result.error,
+      }, 400);
+    }
+
+    return c.json({
+      success: true,
+      data: {
+        new_entry_id: result.newEntryId,
+        message: "Écriture régénérée et sauvegardée avec succès",
+      },
+    });
+  }
+);
+
 export { journaux };
+

@@ -74,7 +74,8 @@ export async function getJournalStats(): Promise<{
  * Récupère le résumé par journal
  */
 export async function getJournalSummary(periode?: string): Promise<JournalSummary[]> {
-  const url = periode 
+  // Si période = "all" ou undefined, ne pas filtrer
+  const url = periode && periode !== "all"
     ? `${BACKEND_URL}/api/journals/summary?periode=${periode}`
     : `${BACKEND_URL}/api/journals/summary`;
   const response = await fetch(url);
@@ -133,9 +134,9 @@ export async function correctEntryJournal(
   entryId: string,
   newJournalCode: JournalCode,
   reason?: string
-): Promise<{ 
-  success: boolean; 
-  entry?: JournalEntry; 
+): Promise<{
+  success: boolean;
+  entry?: JournalEntry;
   changes?: {
     old_journal: JournalCode;
     new_journal: JournalCode;
@@ -161,8 +162,113 @@ export async function correctEntryJournal(
 }
 
 /**
+ * Infos supplémentaires pour la régénération
+ */
+export interface RegenerateAdditionalInfo {
+  new_tiers_name?: string;
+  new_tiers_type: "client" | "fournisseur";
+  payment_mode: "especes" | "carte_bancaire" | "virement" | "cheque" | "credit";
+  reason: string;
+}
+
+/**
+ * Ligne d'écriture régénérée
+ */
+export interface RegeneratedLine {
+  numero_compte: string;
+  libelle_compte: string;
+  libelle_ligne: string;
+  debit: number;
+  credit: number;
+}
+
+/**
+ * Écriture régénérée par l'IA
+ */
+export interface RegeneratedEntry {
+  date_piece: string;
+  numero_piece: string;
+  journal_code: JournalCode;
+  journal_libelle: string;
+  libelle_general: string;
+  tiers_code?: string;
+  tiers_nom?: string;
+  lignes: RegeneratedLine[];
+  total_debit: number;
+  total_credit: number;
+  equilibre: boolean;
+  commentaires?: string;
+}
+
+/**
+ * Résultat de la régénération
+ */
+export interface RegenerateResult {
+  proposed_entry: RegeneratedEntry;
+  reasoning: string;
+  changes_summary: {
+    old_journal: JournalCode;
+    new_journal: JournalCode;
+    old_tiers?: string;
+    new_tiers?: string;
+    accounts_changed: number;
+  };
+}
+
+/**
+ * Régénère une écriture comptable pour un nouveau journal avec DeepSeek AI
+ */
+export async function regenerateEntryWithAI(
+  entryId: string,
+  targetJournal: JournalCode,
+  additionalInfo: RegenerateAdditionalInfo
+): Promise<{
+  success: boolean;
+  data?: RegenerateResult;
+  error?: string;
+}> {
+  const response = await fetch(`${BACKEND_URL}/api/journals/regenerate-entry`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      entry_id: entryId,
+      target_journal: targetJournal,
+      additional_info: additionalInfo,
+    }),
+  });
+
+  const result = await response.json();
+  return result;
+}
+
+/**
+ * Sauvegarde l'écriture régénérée et supprime l'ancienne
+ */
+export async function saveRegeneratedEntry(
+  oldEntryId: string,
+  newEntry: RegeneratedEntry
+): Promise<{
+  success: boolean;
+  data?: { new_entry_id: string; message: string };
+  error?: string;
+}> {
+  const response = await fetch(`${BACKEND_URL}/api/journals/save-regenerated`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      old_entry_id: oldEntryId,
+      new_entry: newEntry,
+    }),
+  });
+
+  const result = await response.json();
+  return result;
+}
+
+/**
  * Mapping des contreparties par journal
  */
+
 export const JOURNAL_CONTREPARTIE: Record<JournalCode, { compte: string; libelle: string }> = {
   AC: { compte: "4011", libelle: "Fournisseurs" },
   VE: { compte: "4111", libelle: "Clients" },

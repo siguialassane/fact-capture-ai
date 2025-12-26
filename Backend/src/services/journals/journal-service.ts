@@ -96,7 +96,7 @@ export function validateJournalForEntry(
 ): { valid: boolean; suggestion?: JournalCode; raison?: string } {
   // Vérifier la cohérence type opération / journal
   const expectedJournal = getJournalFromFactureType(typeOperation);
-  
+
   if (journalCode !== expectedJournal && journalCode !== "OD") {
     return {
       valid: false,
@@ -107,7 +107,7 @@ export function validateJournalForEntry(
 
   // Vérifier la présence de comptes cohérents
   const comptes = lignes.map((l) => l.numero_compte);
-  
+
   // Journal AC devrait avoir des comptes 401 (fournisseurs)
   if (journalCode === "AC") {
     const hasFournisseur = comptes.some((c) => c.startsWith("401"));
@@ -146,37 +146,63 @@ export function validateJournalForEntry(
 
 /**
  * Récupère le résumé des écritures par journal
+ * Si période est spécifiée: utilise vue_journal_summary (par période)
+ * Si période est null/undefined: utilise v_journal_summaries (totaux globaux)
  */
 export async function getJournalSummary(
   periode?: string // Format: "2025-12" ou null pour tout
 ): Promise<JournalSummary[]> {
-  let query = supabase.from("vue_journal_summary").select("*");
 
   if (periode) {
-    query = query.eq("periode", periode);
+    // Résumé par période spécifique
+    const { data, error } = await supabase
+      .from("vue_journal_summary")
+      .select("*")
+      .eq("periode", periode)
+      .order("periode", { ascending: false });
+
+    if (error) {
+      console.error("[Journaux] Erreur résumé par période:", error);
+      return [];
+    }
+
+    return (data || []).map((row) => ({
+      journal_code: row.journal_code as JournalCode,
+      journal_libelle: row.journal_libelle,
+      periode: row.periode,
+      nb_ecritures: row.nb_ecritures,
+      total_debit: parseFloat(row.total_debit) || 0,
+      total_credit: parseFloat(row.total_credit) || 0,
+      premiere_piece: row.premiere_piece,
+      derniere_piece: row.derniere_piece,
+    }));
+  } else {
+    // Résumé global (toutes périodes confondues)
+    const { data, error } = await supabase
+      .from("v_journal_summaries")
+      .select("*");
+
+    if (error) {
+      console.error("[Journaux] Erreur résumé global:", error);
+      return [];
+    }
+
+    return (data || []).map((row) => ({
+      journal_code: row.journal_code as JournalCode,
+      journal_libelle: row.journal_libelle,
+      periode: "all",
+      nb_ecritures: parseInt(row.nombre_ecritures) || 0,
+      total_debit: parseFloat(row.total_debit) || 0,
+      total_credit: parseFloat(row.total_credit) || 0,
+      premiere_piece: null,
+      derniere_piece: null,
+    }));
   }
-
-  const { data, error } = await query.order("periode", { ascending: false });
-
-  if (error) {
-    console.error("[Journaux] Erreur résumé:", error);
-    return [];
-  }
-
-  return data.map((row) => ({
-    journal_code: row.journal_code as JournalCode,
-    journal_libelle: row.journal_libelle,
-    periode: row.periode,
-    nb_ecritures: row.nb_ecritures,
-    total_debit: parseFloat(row.total_debit) || 0,
-    total_credit: parseFloat(row.total_credit) || 0,
-    premiere_piece: row.premiere_piece,
-    derniere_piece: row.derniere_piece,
-  }));
 }
 
 /**
  * Récupère les écritures d'un journal pour une période
+ * Utilise la vue v_journal_entries_with_lines pour le bon mapping des colonnes
  */
 export async function getJournalEntries(
   journalCode: JournalCode,
@@ -187,12 +213,10 @@ export async function getJournalEntries(
     limit?: number;
   }
 ): Promise<any[]> {
+  // Utiliser la vue SQL qui fait le mapping automatique
   let query = supabase
-    .from("journal_entries")
-    .select(`
-      *,
-      lignes:journal_entry_lines(*)
-    `)
+    .from("v_journal_entries_with_lines")
+    .select("*")
     .eq("journal_code", journalCode);
 
   if (options?.dateDebut) {
@@ -215,6 +239,8 @@ export async function getJournalEntries(
     return [];
   }
 
+  // La vue retourne déjà les lignes avec le bon mapping
+  // lignes contient: numero_compte, libelle_ligne, libelle_compte, debit, credit
   return data || [];
 }
 
@@ -277,35 +303,35 @@ export async function getJournalStats(): Promise<{
 /**
  * Mapping des comptes de contrepartie par journal SYSCOHADA
  */
-export const JOURNAL_CONTREPARTIE_MAPPING: Record<JournalCode, { 
-  compte: string; 
+export const JOURNAL_CONTREPARTIE_MAPPING: Record<JournalCode, {
+  compte: string;
   libelle: string;
   comptes_associes: string[];
 }> = {
-  AC: { 
-    compte: "4011", 
+  AC: {
+    compte: "4011",
     libelle: "Fournisseurs",
-    comptes_associes: ["401", "4011", "4017"] 
+    comptes_associes: ["401", "4011", "4017"]
   },
-  VE: { 
-    compte: "4111", 
+  VE: {
+    compte: "4111",
     libelle: "Clients",
-    comptes_associes: ["411", "4111", "4117"] 
+    comptes_associes: ["411", "4111", "4117"]
   },
-  BQ: { 
-    compte: "5211", 
+  BQ: {
+    compte: "5211",
     libelle: "Banque",
-    comptes_associes: ["512", "5211", "521"] 
+    comptes_associes: ["512", "5211", "521"]
   },
-  CA: { 
-    compte: "571", 
+  CA: {
+    compte: "571",
     libelle: "Caisse",
-    comptes_associes: ["57", "571", "5711"] 
+    comptes_associes: ["57", "571", "5711"]
   },
-  OD: { 
-    compte: "", 
+  OD: {
+    compte: "",
     libelle: "Opérations diverses",
-    comptes_associes: [] 
+    comptes_associes: []
   },
 };
 
@@ -344,18 +370,18 @@ export async function correctEntryJournal(
       .single();
 
     if (fetchError || !existingEntry) {
-      return { 
-        success: false, 
-        error: `Écriture non trouvée: ${entryId}` 
+      return {
+        success: false,
+        error: `Écriture non trouvée: ${entryId}`
       };
     }
 
     const oldJournalCode = existingEntry.journal_code as JournalCode;
-    
+
     // Si même journal, rien à faire
     if (oldJournalCode === newJournalCode) {
-      return { 
-        success: true, 
+      return {
+        success: true,
         entry: existingEntry,
         changes: {
           old_journal: oldJournalCode,
@@ -376,16 +402,16 @@ export async function correctEntryJournal(
 
     // 2. Générer un nouveau numéro de pièce pour le nouveau journal
     const newNumeroPiece = await getNextPieceNumber(
-      newJournalCode, 
+      newJournalCode,
       new Date(existingEntry.date_piece)
     );
 
     // 3. Mettre à jour les lignes de contrepartie
     const lignes = existingEntry.lignes || [];
-    
+
     for (const ligne of lignes) {
       const compte = ligne.numero_compte;
-      
+
       // Vérifier si c'est un compte de contrepartie de l'ancien journal
       const isOldContrepartie = oldContrepartie.comptes_associes.some(
         prefix => compte.startsWith(prefix.substring(0, 3))
@@ -395,11 +421,11 @@ export async function correctEntryJournal(
         // Calculer le nouveau compte
         // Garder le même niveau de détail (4011 → 4111, 571 → 5211, etc.)
         const newCompte = newContrepartie.compte;
-        
+
         // Mettre à jour la ligne
         const { error: updateLineError } = await supabase
           .from("journal_entry_lines")
-          .update({ 
+          .update({
             numero_compte: newCompte,
             libelle_compte: newContrepartie.libelle
           })
@@ -431,9 +457,9 @@ export async function correctEntryJournal(
       .single();
 
     if (updateError) {
-      return { 
-        success: false, 
-        error: `Erreur mise à jour écriture: ${updateError.message}` 
+      return {
+        success: false,
+        error: `Erreur mise à jour écriture: ${updateError.message}`
       };
     }
 
@@ -452,9 +478,9 @@ export async function correctEntryJournal(
 
   } catch (error: any) {
     console.error("[Journaux] Erreur correction:", error);
-    return { 
-      success: false, 
-      error: error.message || "Erreur inconnue" 
+    return {
+      success: false,
+      error: error.message || "Erreur inconnue"
     };
   }
 }
