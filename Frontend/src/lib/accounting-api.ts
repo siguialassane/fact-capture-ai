@@ -63,32 +63,16 @@ export interface AccountingResult {
 export type AccountingStatus = "idle" | "generating" | "ready" | "error" | "refining";
 
 /**
- * Type pour le statut de paiement
- */
-export type StatutPaiement = "paye" | "non_paye" | "partiel" | "inconnu";
-
-/**
  * Génère une écriture comptable à partir des données de facture
- * @param invoiceData - Données extraites de la facture
- * @param statutPaiement - Statut de paiement confirmé par l'utilisateur (optionnel)
- * @param montantPartielPaye - Montant déjà payé si paiement partiel (optionnel)
  */
-export async function generateAccountingEntry(
-  invoiceData: Record<string, unknown>,
-  statutPaiement?: StatutPaiement,
-  montantPartielPaye?: number
-): Promise<AccountingResult> {
+export async function generateAccountingEntry(invoiceData: Record<string, unknown>): Promise<AccountingResult> {
   try {
     const response = await fetch(`${BACKEND_URL}/api/accounting/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        invoiceData,
-        statutPaiement,
-        montantPartielPaye,
-      }),
+      body: JSON.stringify({ invoiceData }),
     });
 
     const result = await response.json();

@@ -80,32 +80,6 @@ export const INVOICE_ANALYSIS_PROMPT = `Tu es un ASSISTANT COMPTABLE. Analyse ce
    - Conditions: Comptant, 30j, 60j fin de mois...
    - Date d'échéance si paiement différé
 
-6. STATUT DE PAIEMENT - ⚠️ CRUCIAL POUR LE JOURNAL COMPTABLE
-   Analyse si le paiement a été effectué ou non:
-   
-   📌 PAYÉ (→ statut_paiement_suggere: "paye")
-   - Mots clés: "PAYÉ", "ACQUITTÉ", "RÉGLÉ", "SOLDÉ", "REÇU", "ENCAISSÉ"
-   - Mention "Solde : 0", "Net à payer : 0", "Reste dû : 0"
-   - Ticket de caisse (généralement payé immédiatement)
-   - Mention de date de paiement effectuée
-   
-   📌 NON PAYÉ (→ statut_paiement_suggere: "non_paye")
-   - Facture avec "NET À PAYER" > 0 sans mention de paiement
-   - Date d'échéance future
-   - Mention "À régler avant le...", "Échéance : ..."
-   - Absence de mention "Payé" ou "Acquitté"
-   
-   📌 PAIEMENT PARTIEL (→ statut_paiement_suggere: "partiel")
-   - Mention "Acompte versé", "Acompte reçu"
-   - Différence entre montant total et reste à payer
-   - Mention "Solde restant", "Reste dû"
-   
-   📌 INDÉTERMINÉ (→ statut_paiement_suggere: "inconnu")
-   - Aucun indice clair de paiement
-   - "Échéance : Réception" (ambigu, peut être payé ou non)
-   
-   ⚠️ Liste tous les indices trouvés dans "indices_paiement"
-
 📐 FORMAT JSON:
 {
   "is_invoice": true,
@@ -153,10 +127,6 @@ export const INVOICE_ANALYSIS_PROMPT = `Tu es un ASSISTANT COMPTABLE. Analyse ce
   "mode_paiement": "especes | carte_bancaire | virement | cheque | prelevement | credit",
   "conditions_paiement": "30 jours fin de mois",
   "rib_iban": "IBAN si visible",
-  
-  "statut_paiement_suggere": "paye | non_paye | partiel | inconnu",
-  "indices_paiement": ["Liste des indices trouvés: 'Payé', 'Échéance: Réception', etc."],
-  "montant_partiel_paye": "Montant déjà payé si paiement partiel",
   
   "infos_complementaires": {
     "toute_autre_info_utile": "valeur"

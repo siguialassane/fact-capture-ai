@@ -12,7 +12,7 @@ import type { InvoiceAIResult } from "../ai/types";
 
 // Configuration OpenRouter
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const ACCOUNTING_MODEL = process.env.GEMINI_MODEL || "deepseek/deepseek-chat";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "google/gemini-3-flash-preview";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 /**
@@ -61,7 +61,7 @@ export interface AccountingResult {
 }
 
 /**
- * Contexte comptable pour l'IA
+ * Contexte comptable pour Gemini
  */
 const ACCOUNTING_CONTEXT = `Tu es un expert-comptable certifié spécialisé dans la comptabilité SYSCOHADA (Système Comptable Ouest-Africain).
 Tu travailles pour l'entreprise EXIAS SARL, une société de vente de matériel informatique basée à Abidjan, Côte d'Ivoire.
@@ -209,69 +209,16 @@ Crédit: 4431 (TVA collectée)    Montant TVA
 `;
 
 /**
- * Type pour le statut de paiement confirmé par l'utilisateur
- */
-export type StatutPaiement = "paye" | "non_paye" | "partiel" | "inconnu";
-
-/**
  * Prompt pour générer l'écriture comptable
- * @param invoiceData - Données extraites de la facture par Qwen
- * @param statutPaiementConfirme - Statut de paiement confirmé par l'utilisateur (optionnel)
- * @param montantPartielPaye - Montant déjà payé si paiement partiel (optionnel)
  */
-function buildAccountingPrompt(
-  invoiceData: InvoiceAIResult,
-  statutPaiementConfirme?: StatutPaiement,
-  montantPartielPaye?: number
-): string {
+function buildAccountingPrompt(invoiceData: InvoiceAIResult): string {
   const jsonData = JSON.stringify(invoiceData, null, 2);
-
-  // Instructions spécifiques selon le statut de paiement confirmé
-  let instructionStatutPaiement = "";
-
-  if (statutPaiementConfirme === "paye") {
-    instructionStatutPaiement = `
-## ⚠️ INSTRUCTION CRITIQUE - PAIEMENT DÉJÀ REÇU/EFFECTUÉ
-L'UTILISATEUR A CONFIRMÉ QUE LE PAIEMENT A ÉTÉ EFFECTUÉ.
-- Si c'est une VENTE (EXIAS est le vendeur) → Journal BQ (Banque), contrepartie 521x
-- Si c'est un ACHAT → Journal BQ (Banque), contrepartie 521x
-- NE PAS utiliser les journaux AC ou VE (réservés aux opérations à crédit)
-- NE PAS utiliser les comptes 4011 (Fournisseurs) ou 4111 (Clients)
-`;
-  } else if (statutPaiementConfirme === "non_paye") {
-    instructionStatutPaiement = `
-## ⚠️ INSTRUCTION CRITIQUE - OPÉRATION À CRÉDIT (NON PAYÉE)
-L'UTILISATEUR A CONFIRMÉ QUE LE PAIEMENT N'A PAS ÉTÉ EFFECTUÉ.
-- Si c'est une VENTE (EXIAS est le vendeur) → Journal VE (Ventes), contrepartie 4111 (Clients)
-- Si c'est un ACHAT → Journal AC (Achats), contrepartie 4011 (Fournisseurs)
-- NE PAS utiliser les journaux BQ ou CA (réservés aux paiements immédiats)
-- NE PAS utiliser les comptes 521x (Banque) ou 571 (Caisse)
-`;
-  } else if (statutPaiementConfirme === "partiel") {
-    const montantPaye = montantPartielPaye || 0;
-    instructionStatutPaiement = `
-## ⚠️ INSTRUCTION CRITIQUE - PAIEMENT PARTIEL
-L'UTILISATEUR A CONFIRMÉ UN PAIEMENT PARTIEL DE ${montantPaye.toLocaleString("fr-FR")} FCFA.
-Tu dois générer DEUX écritures distinctes:
-
-### Écriture 1 - Enregistrement de l'opération (Journal VE ou AC selon le sens)
-- Utiliser le journal VE (si vente) ou AC (si achat)
-- Contrepartie: 4111 (Clients) ou 4011 (Fournisseurs)
-- Montant: Total TTC de la facture
-
-### Écriture 2 - Encaissement/Règlement partiel (Journal BQ)
-- Journal BQ (Banque)
-- Montant: ${montantPaye.toLocaleString("fr-FR")} FCFA
-- Solde le compte client/fournisseur partiellement
-`;
-  }
 
   return `## DONNÉES DE LA FACTURE À COMPTABILISER
 
 \`\`\`json
 ${jsonData}
 \`\`\`
-${instructionStatutPaiement}
 
 ## TA MISSION
 
@@ -290,9 +237,8 @@ Analyse cette facture/ticket et génère l'écriture comptable correspondante en
    - À CRÉDIT (avec échéance) → Journal AC ou VE, contrepartie 4011 ou 4111
 
 3. **IDENTIFIE LE SENS** (achat ou vente):
-   - C'est un ACHAT si: on achète quelque chose à un fournisseur (on paie)
-   - C'est une VENTE si: EXIAS vend quelque chose à un client (on encaisse)
-   - ⚠️ RAPPEL: Tu travailles pour EXIAS SARL. Si EXIAS est le fournisseur/émetteur de la facture, c'est une VENTE !
+   - C'est un ACHAT si: on achète quelque chose à un fournisseur
+   - C'est une VENTE si: on vend quelque chose à un client
 
 4. **CALCULE LES MONTANTS**:
    - Montant HT
@@ -309,7 +255,6 @@ Analyse cette facture/ticket et génère l'écriture comptable correspondante en
 | Facture achat | Carte/Virement | BQ | 521x Banque |
 | Facture achat | À crédit | AC | 4011 Fournisseurs |
 | Ticket caisse (vente) | Espèces | CA | 571 Caisse |
-| Facture vente | Payée | BQ | 521x Banque |
 | Facture vente | À crédit | VE | 4111 Clients |
 
 ### Format de réponse (JSON STRICT):
@@ -318,7 +263,6 @@ Analyse cette facture/ticket et génère l'écriture comptable correspondante en
 {
   "type_document": "ticket_caisse" | "facture" | "recu",
   "mode_paiement": "especes" | "carte_bancaire" | "virement" | "cheque" | "credit",
-  "statut_paiement": "paye" | "non_paye" | "partiel",
   "type_operation": "achat" | "vente",
   "date_piece": "YYYY-MM-DD",
   "numero_piece": "numéro de la facture ou ticket",
@@ -476,17 +420,11 @@ Débit: 6xxx (Charge) HT | Débit: 4452 (TVA) | Crédit: 521x (Banque) TTC
 }
 
 /**
- * Appelle l'IA avec le mode reasoning pour générer l'écriture comptable
- * @param invoiceData - Données extraites de la facture
- * @param dbContext - Contexte comptable depuis la DB (optionnel)
- * @param statutPaiement - Statut de paiement confirmé par l'utilisateur (optionnel)
- * @param montantPartielPaye - Montant déjà payé si paiement partiel (optionnel)
+ * Appelle Gemini avec le mode reasoning pour générer l'écriture comptable
  */
 export async function generateAccountingEntry(
   invoiceData: InvoiceAIResult,
-  dbContext?: AccountingContext,
-  statutPaiement?: StatutPaiement,
-  montantPartielPaye?: number
+  dbContext?: AccountingContext
 ): Promise<AccountingResult> {
   if (!OPENROUTER_API_KEY) {
     return {
@@ -498,10 +436,7 @@ export async function generateAccountingEntry(
   const startTime = Date.now();
 
   try {
-    console.log("[Accounting AI] Génération de l'écriture comptable...");
-    if (statutPaiement) {
-      console.log(`[Accounting AI] Statut paiement confirmé: ${statutPaiement}`);
-    }
+    console.log("[Gemini Accounting] Génération de l'écriture comptable...");
 
     // Premier appel avec reasoning
     const response = await fetch(OPENROUTER_URL, {
@@ -513,7 +448,7 @@ export async function generateAccountingEntry(
         "X-Title": "Fact Capture AI - Accounting",
       },
       body: JSON.stringify({
-        model: ACCOUNTING_MODEL,
+        model: GEMINI_MODEL,
         messages: [
           {
             role: "system",
@@ -521,7 +456,7 @@ export async function generateAccountingEntry(
           },
           {
             role: "user",
-            content: buildAccountingPrompt(invoiceData, statutPaiement, montantPartielPaye),
+            content: buildAccountingPrompt(invoiceData),
           },
         ],
         reasoning: { enabled: true },
@@ -531,7 +466,7 @@ export async function generateAccountingEntry(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[Accounting AI] Erreur API:", errorText);
+      console.error("[Gemini Accounting] Erreur API:", errorText);
       return {
         success: false,
         erreurs: [`Erreur API: ${response.status} - ${errorText}`],
@@ -552,7 +487,7 @@ export async function generateAccountingEntry(
     if (!assistantMessage) {
       return {
         success: false,
-        erreurs: ["Pas de réponse de l'IA"],
+        erreurs: ["Pas de réponse de Gemini"],
       };
     }
 
@@ -576,15 +511,15 @@ export async function generateAccountingEntry(
     try {
       entryData = JSON.parse(content);
     } catch (parseError) {
-      console.error("[Accounting AI] Erreur parsing JSON:", parseError);
-      console.log("[Accounting AI] Contenu brut:", content);
+      console.error("[Gemini Accounting] Erreur parsing JSON:", parseError);
+      console.log("[Gemini Accounting] Contenu brut:", content);
       return {
         success: false,
         reasoning_details: {
           thinking_content: reasoningContent,
           duration_ms: duration,
         },
-        erreurs: ["Impossible de parser la réponse JSON de l'IA"],
+        erreurs: ["Impossible de parser la réponse JSON de Gemini"],
       };
     }
 
@@ -605,7 +540,7 @@ export async function generateAccountingEntry(
       reasoning: reasoningContent,
     };
 
-    console.log("[Accounting AI] Écriture générée avec succès");
+    console.log("[Gemini Accounting] Écriture générée avec succès");
 
     return {
       success: true,
@@ -673,7 +608,7 @@ export async function refineAccountingEntry(
         "X-Title": "Fact Capture AI - Accounting Refinement",
       },
       body: JSON.stringify({
-        model: ACCOUNTING_MODEL,
+        model: GEMINI_MODEL,
         messages,
         reasoning: { enabled: true },
         temperature: 0.1,

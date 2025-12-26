@@ -16,8 +16,6 @@ const accounting = new Hono();
 const GenerateEntrySchema = z.object({
   invoiceData: z.record(z.any()), // FlexibleInvoiceAIResult
   invoiceId: z.number().optional(), // ID de la facture source
-  statutPaiement: z.enum(["paye", "non_paye", "partiel", "inconnu"]).optional(), // Statut confirmé par l'utilisateur
-  montantPartielPaye: z.number().optional(), // Montant déjà payé si paiement partiel
 });
 
 // Schema pour l'affinement d'écriture
@@ -86,23 +84,15 @@ accounting.post(
   "/generate",
   zValidator("json", GenerateEntrySchema),
   async (c) => {
-    const { invoiceData, invoiceId, statutPaiement, montantPartielPaye } = c.req.valid("json");
+    const { invoiceData, invoiceId } = c.req.valid("json");
 
     console.log("[Accounting API] Génération d'écriture comptable...");
-    if (statutPaiement) {
-      console.log(`[Accounting API] Statut paiement confirmé: ${statutPaiement}`);
-    }
 
     try {
       // Récupérer le contexte comptable depuis la base de données
       const accountingContext = await getAccountingContext();
 
-      const result: AccountingResult = await generateAccountingEntry(
-        invoiceData as any,
-        accountingContext,
-        statutPaiement,
-        montantPartielPaye
-      );
+      const result: AccountingResult = await generateAccountingEntry(invoiceData as any, accountingContext);
 
       if (!result.success) {
         return c.json({
@@ -302,7 +292,7 @@ accounting.post(
           total_credit: ecriture.total_credit,
           statut: "brouillon",
           genere_par_ia: true,
-          ia_model: iaModel || "deepseek/deepseek-chat",
+          ia_model: iaModel || "google/gemini-3-flash-preview",
           ia_reasoning: iaReasoning || ecriture.reasoning,
           ia_suggestions: iaSuggestions ? JSON.stringify(iaSuggestions) : null,
           notes: ecriture.commentaires,
@@ -542,7 +532,7 @@ accounting.post(
 
     try {
       const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-      const GEMINI_MODEL = process.env.GEMINI_MODEL || "deepseek/deepseek-chat";
+      const GEMINI_MODEL = process.env.GEMINI_MODEL || "google/gemini-3-flash-preview";
 
       if (!OPENROUTER_API_KEY) {
         return c.json({

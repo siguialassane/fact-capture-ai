@@ -2,8 +2,9 @@ import { useEffect, useCallback } from "react";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { DocumentViewer } from "./DocumentViewer";
 import { InvoiceDataPanel } from "./InvoiceDataPanel";
-import { PaymentStatusSelector, type StatutPaiement } from "./PaymentStatusSelector";
 import { AccountingEntryView } from "@/components/accounting";
+import { InvoiceArticlesList } from "@/components/accounting/InvoiceArticlesList";
+import { PaymentStatusSelector } from "@/components/desktop/PaymentStatusSelector"; // Restauré
 import { JournauxView } from "@/components/journals";
 import { GrandLivreView } from "@/components/grand-livre";
 import { LettrageView } from "@/components/lettrage";
@@ -17,6 +18,7 @@ import {
   chatAboutEntry,
   type JournalEntry,
   type AccountingStatus,
+  type StatutPaiement, // Restauré
 } from "@/lib/accounting-api";
 import {
   useInvoiceAnalysis,
@@ -41,7 +43,7 @@ export function DesktopDashboard() {
   const [isSavingAccounting, setIsSavingAccounting] = useState(false);
   const [isAccountingSaved, setIsAccountingSaved] = useState(false);
 
-  // Payment status selection state (new flow)
+  // Payment Selection State (Workflow Restauré)
   const [showPaymentSelector, setShowPaymentSelector] = useState(false);
   const [confirmedPaymentStatus, setConfirmedPaymentStatus] = useState<StatutPaiement | undefined>(undefined);
   const [confirmedPartialAmount, setConfirmedPartialAmount] = useState<number | undefined>(undefined);
@@ -72,14 +74,17 @@ export function DesktopDashboard() {
     onDataRegenerated: setInvoiceData,
   });
 
-  // Function to trigger payment status selection (called when invoice is analyzed)
+  // RESTAURÉ : Fonction pour déclencher la sélection du statut
   const triggerPaymentStatusSelection = useCallback((data: FlexibleInvoiceAIResult) => {
     if (!data.is_invoice) return;
     console.log("[Accounting] Affichage du sélecteur de statut de paiement...");
     setShowPaymentSelector(true);
+    // On efface toute entrée précédente si nouvelle analyse
+    setAccountingEntry(null);
+    setAccountingStatus("idle");
   }, []);
 
-  // Function to generate accounting entry with confirmed payment status
+  // RESTAURÉ : Génération comptable avec statut confirmé
   const generateAccounting = useCallback(async (
     data: FlexibleInvoiceAIResult,
     statutPaiement?: StatutPaiement,
@@ -88,16 +93,14 @@ export function DesktopDashboard() {
     if (!data.is_invoice) return;
 
     console.log("[Accounting] Démarrage de la génération d'écriture comptable...");
-    if (statutPaiement) {
-      console.log(`[Accounting] Statut paiement confirmé: ${statutPaiement}`);
-    }
     setAccountingStatus("generating");
-    setShowPaymentSelector(false);
+    setShowPaymentSelector(false); // Masquer le sélecteur une fois lancé
 
     try {
+      // On passe le statut confirmé à l'API (si supporté par backend) ou au moins on l'utilise pour le contexte local
       const result = await generateAccountingEntry(
         data as Record<string, unknown>,
-        statutPaiement,
+        statutPaiement, // Argument potentiellement à réintégrer dans l'API front
         montantPartiel
       );
 
@@ -106,15 +109,18 @@ export function DesktopDashboard() {
         setAccountingReasoning(result.data.reasoning);
         setAccountingSuggestions(result.data.suggestions || []);
         setAccountingStatus("ready");
+
+        // Stocker le choix pour l'affichage
         setConfirmedPaymentStatus(statutPaiement);
         setConfirmedPartialAmount(montantPartiel);
 
         toast({
           title: "Écriture comptable générée",
-          description: "Consultez l'onglet 'Écriture Comptable' pour voir le résultat.",
+          description: "Consultez l'onglet 'Comptabilisation' pour voir le résultat.",
         });
       } else {
         setAccountingStatus("error");
+        // Si erreur, on peut réafficher le sélecteur pour réessayer ? Ou laisser l'erreur.
         toast({
           title: "Erreur de génération",
           description: result.error?.message || "Impossible de générer l'écriture",
@@ -127,20 +133,21 @@ export function DesktopDashboard() {
     }
   }, [toast]);
 
-  // Handle payment status confirmation
+  // RESTAURÉ : Callback de confirmation depuis le sélecteur
   const handlePaymentStatusConfirm = useCallback((status: StatutPaiement, partialAmount?: number) => {
     if (!invoiceData) return;
     console.log(`[Accounting] Statut confirmé: ${status}, montant partiel: ${partialAmount}`);
     generateAccounting(invoiceData, status, partialAmount);
   }, [invoiceData, generateAccounting]);
 
-  // Handle regenerate with different payment status
+  // RESTAURÉ : Callback pour régénérer avec un nouveau statut (depuis la vue comptable)
   const handleRegenerateWithNewStatus = useCallback((status: StatutPaiement, partialAmount?: number) => {
     if (!invoiceData) return;
     console.log(`[Accounting] Régénération avec nouveau statut: ${status}`);
     setIsAccountingSaved(false);
     generateAccounting(invoiceData, status, partialAmount);
   }, [invoiceData, generateAccounting]);
+
 
   // Supabase sync hook
   const {
@@ -163,8 +170,8 @@ export function DesktopDashboard() {
           setStatus("not_invoice");
         } else {
           setStatus("complete");
-          // Auto-generate accounting entry
-          generateAccounting(result);
+          // STOP AUTO-GENERATE -> Trigger Selection
+          triggerPaymentStatusSelection(result);
         }
         return;
       }
@@ -194,11 +201,10 @@ export function DesktopDashboard() {
               setStatus("not_invoice");
             } else {
               setStatus("complete");
-              // Trigger payment status selection instead of auto-generating
+              // STOP AUTO-GENERATE -> Trigger Selection
               triggerPaymentStatusSelection(result);
             }
           } else if (supabaseRecord.image_base64 && isOpenRouterConfigured()) {
-            // Analyze if needed
             await analyzeImage(supabaseRecord.image_base64, supabaseRecord.id);
           } else {
             setStatus("waiting");
@@ -220,7 +226,7 @@ export function DesktopDashboard() {
             const result = latestInvoice.data as unknown as FlexibleInvoiceAIResult;
             setInvoiceData(result);
             setStatus("complete");
-            // Trigger payment status selection instead of auto-generating
+            // STOP AUTO-GENERATE -> Trigger Selection
             triggerPaymentStatusSelection(result);
           } else {
             setStatus("waiting");
@@ -250,10 +256,12 @@ export function DesktopDashboard() {
     setAccountingSuggestions([]);
     setIsSavingAccounting(false);
     setIsAccountingSaved(false);
-    // Reset payment status selection
+
+    // Reset payment selector
     setShowPaymentSelector(false);
     setConfirmedPaymentStatus(undefined);
     setConfirmedPartialAmount(undefined);
+
     toast({
       title: "Prêt pour une nouvelle facture",
       description: "Importez un fichier ou attendez un scan depuis le mobile.",
@@ -270,10 +278,10 @@ export function DesktopDashboard() {
       setAccountingEntry(null);
       setIsSavingAccounting(false);
       setIsAccountingSaved(false);
-      // Reset payment status selection
+
+      // Reset payment selector
       setShowPaymentSelector(false);
       setConfirmedPaymentStatus(undefined);
-      setConfirmedPartialAmount(undefined);
 
       // Update PDF URL for native display
       if (file.type === "application/pdf") {
@@ -296,7 +304,7 @@ export function DesktopDashboard() {
         });
       }
 
-      // Trigger payment status selection after analysis
+      // STOP AUTO-GENERATE -> Trigger Selection
       if (result && result.is_invoice) {
         triggerPaymentStatusSelection(result);
       }
@@ -309,8 +317,8 @@ export function DesktopDashboard() {
     async (feedback: string) => {
       if (!accountingEntry || !invoiceData) return;
 
-      // If empty feedback, regenerate with same payment status
       if (!feedback.trim()) {
+        // Regenerate with SAME status
         generateAccounting(invoiceData, confirmedPaymentStatus, confirmedPartialAmount);
         return;
       }
@@ -356,7 +364,6 @@ export function DesktopDashboard() {
       return;
     }
 
-    // Vérifier l'équilibre
     if (!accountingEntry.equilibre) {
       toast({
         title: "Écriture déséquilibrée",
@@ -371,7 +378,7 @@ export function DesktopDashboard() {
     try {
       const result = await saveAccountingEntry(accountingEntry, {
         invoiceId: supabaseInvoice?.id,
-        iaModel: "deepseek/deepseek-chat",
+        iaModel: "google/gemini-3-flash-preview",
         iaReasoning: accountingReasoning?.thinking_content,
         iaSuggestions: accountingSuggestions,
       });
@@ -442,13 +449,12 @@ export function DesktopDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="h-screen bg-background flex overflow-hidden">
       <DashboardSidebar
         activeItem={activeMenuItem}
         onItemClick={setActiveMenuItem}
       />
 
-      {/* Vues plein écran pour Journaux, Grand Livre, Lettrage, États Financiers */}
       {(activeMenuItem === "journaux" || activeMenuItem === "grand-livre" || activeMenuItem === "lettrage" || activeMenuItem === "etats-financiers") ? (
         <div className="flex-1 overflow-auto">
           {activeMenuItem === "journaux" && <JournauxView />}
@@ -457,38 +463,19 @@ export function DesktopDashboard() {
           {activeMenuItem === "etats-financiers" && <EtatsFinanciersView />}
         </div>
       ) : (
-        /* Layout standard avec panneau gauche/droite */
         <div className="flex-1 flex">
           <div className="flex-1 border-r border-border">
-            <InvoiceDataPanel
-              status={status}
-              data={invoiceData}
-              imageUrl={invoice?.image}
-              onDataChange={updateData}
-              onArticleChange={updateArticle}
-              onNewInvoice={handleNewInvoice}
-              onFileUpload={handleFileUpload}
-              onRequestPhotoFromPWA={requestPhotoFromMobile}
-              isWaitingForPWA={isWaitingForPWA}
-              onSendChatMessage={status === "complete" && invoiceData ? handleChatMessage : undefined}
-              onRegenerateChatData={handleRegenerateData}
-              isChatLoading={isChatLoading}
-              chatMessages={chatMessages}
-              setChatMessages={setChatMessages}
-            />
-          </div>
-
-          <div className="w-[45%]">
-
             {activeMenuItem === "accounting" ? (
+              // LOGIQUE D'AFFICHAGE DU SELECTEUR
               showPaymentSelector && invoiceData ? (
-                <div className="h-screen overflow-auto p-6 bg-gradient-to-br from-slate-50 to-violet-50">
-                  <div className="max-w-2xl mx-auto mt-10">
+                <div className="h-full overflow-auto p-6 bg-gradient-to-br from-slate-50 to-violet-50 flex items-center justify-center">
+                  <div className="w-full max-w-xl">
                     <PaymentStatusSelector
                       suggestedStatus={(invoiceData as any).statut_paiement_suggere || "inconnu"}
                       paymentIndices={(invoiceData as any).indices_paiement || []}
                       paymentMode={(invoiceData as any).mode_paiement}
                       totalAmount={(() => {
+                        // Helper pour choper le montant
                         const mt = (invoiceData as any).montant_total;
                         if (typeof mt === 'number') return mt;
                         if (typeof mt === 'string') return Number(mt.replace(/[^0-9.,]/g, '').replace(',', '.')) || undefined;
@@ -512,10 +499,36 @@ export function DesktopDashboard() {
                   onChat={handleAccountingChat}
                   isSaving={isSavingAccounting}
                   isSaved={isAccountingSaved}
-                  onRegenerate={() => setShowPaymentSelector(true)}
+                  onRegenerate={() => setShowPaymentSelector(true)} // Retour au sélecteur
                   onRegenerateWithStatus={handleRegenerateWithNewStatus}
                 />
               )
+            ) : (
+              <InvoiceDataPanel
+                status={status}
+                data={invoiceData}
+                imageUrl={invoice?.image}
+                onDataChange={updateData}
+                onArticleChange={updateArticle}
+                onNewInvoice={handleNewInvoice}
+                onFileUpload={handleFileUpload}
+                onRequestPhotoFromPWA={requestPhotoFromMobile}
+                isWaitingForPWA={isWaitingForPWA}
+                onSendChatMessage={status === "complete" && invoiceData ? handleChatMessage : undefined}
+                onRegenerateChatData={handleRegenerateData}
+                isChatLoading={isChatLoading}
+                chatMessages={chatMessages}
+                setChatMessages={setChatMessages}
+              />
+            )}
+          </div>
+
+          <div className="w-[45%]">
+            {activeMenuItem === "accounting" ? (
+              <InvoiceArticlesList
+                invoiceData={invoiceData || undefined}
+                onArticleChange={updateArticle}
+              />
             ) : (
               <DocumentViewer
                 imageUrl={pdfUrl ? null : (invoice?.image || null)}

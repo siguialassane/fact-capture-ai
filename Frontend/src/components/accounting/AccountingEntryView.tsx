@@ -1,25 +1,29 @@
 /**
  * AccountingEntryView Component
  * 
- * Affiche l'écriture comptable générée par l'IA et les articles de la facture côte à côte.
- * Permet de modifier le statut de paiement et de régénérer l'écriture.
+ * Vue principale pour la validation de l'écriture comptable.
+ * Design aéré et terminologie professionnelle.
  */
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   BookOpen,
   Check,
   RefreshCw,
   Save,
-  MessageCircle,
-  Table as TableIcon,
   CreditCard,
   AlertCircle,
   CheckCircle2,
-  List,
+  FileCheck,
+  Calendar,
+  Hash,
+  User,
+  FileText,
+  Clock,
+  PieChart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -35,11 +39,6 @@ import { Input } from "@/components/ui/input";
 import type { JournalEntry, AccountingStatus, StatutPaiement } from "@/lib/accounting-api";
 import type { FlexibleInvoiceAIResult } from "@/lib/openrouter";
 
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
-
 interface AccountingEntryViewProps {
   entry: JournalEntry | null;
   status: AccountingStatus;
@@ -48,14 +47,14 @@ interface AccountingEntryViewProps {
     duration_ms?: number;
   };
   suggestions?: string[];
-  invoiceData?: FlexibleInvoiceAIResult; // Données brutes de la facture (articles)
-  confirmedStatus?: StatutPaiement; // Statut actuel confirmé
+  invoiceData?: FlexibleInvoiceAIResult;
+  confirmedStatus?: StatutPaiement;
   confirmedPartialAmount?: number;
   onRefine?: (feedback: string) => void;
   onSave?: () => void;
   onChat?: (message: string, entry: JournalEntry) => Promise<string>;
-  onRegenerate?: () => void; // Simple regenerate (legacy)
-  onRegenerateWithStatus?: (status: StatutPaiement, partialAmount?: number) => void; // New regenerate
+  onRegenerate?: () => void;
+  onRegenerateWithStatus?: (status: StatutPaiement, partialAmount?: number) => void;
   isSaving?: boolean;
   isSaved?: boolean;
 }
@@ -63,21 +62,14 @@ interface AccountingEntryViewProps {
 export function AccountingEntryView({
   entry,
   status,
-  reasoning,
-  suggestions,
-  invoiceData,
   confirmedStatus,
   confirmedPartialAmount,
-  onRefine,
   onSave,
-  onChat,
   onRegenerate,
   onRegenerateWithStatus,
   isSaving = false,
   isSaved = false,
 }: AccountingEntryViewProps) {
-  const [activeTab, setActiveTab] = useState<"entry" | "reasoning">("entry");
-  const [showChat, setShowChat] = useState(false);
 
   // State pour le changement de statut
   const [newStatus, setNewStatus] = useState<StatutPaiement | undefined>(confirmedStatus);
@@ -103,28 +95,41 @@ export function AccountingEntryView({
     return new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 0 }).format(num);
   };
 
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return "-";
+    try {
+      return new Date(dateStr).toLocaleDateString("fr-FR", { year: 'numeric', month: 'long', day: 'numeric' });
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
+  // --- RENDU : CHARGEMENT ---
   if (status === "generating") {
     return (
-      <div className="flex flex-col items-center justify-center p-12 space-y-4 text-center h-full">
+      <div className="flex flex-col items-center justify-center p-12 space-y-6 text-center h-full bg-slate-50/50">
         <div className="relative">
-          <div className="absolute inset-0 bg-violet-500/20 blur-xl rounded-full animate-pulse" />
+          <div className="absolute inset-0 bg-violet-500/20 blur-2xl rounded-full animate-pulse" />
           <RefreshCw className="h-16 w-16 text-violet-600 animate-spin relative z-10" />
         </div>
-        <h3 className="text-xl font-semibold text-slate-800">Génération de l'écriture...</h3>
-        <p className="text-slate-500 max-w-md">
-          DeepSeek analyse les données pour produire une écriture comptable SYSCOHADA équilibrée.
-        </p>
+        <div>
+          <h3 className="text-xl font-semibold text-slate-800 mb-2">Analyse comptable en cours...</h3>
+          <p className="text-slate-500 max-w-md mx-auto">
+            Le système génère les écritures selon le plan comptable SYSCOHADA.
+          </p>
+        </div>
       </div>
     );
   }
 
+  // --- RENDU : ERREUR ---
   if (status === "error") {
     return (
-      <div className="flex flex-col items-center justify-center p-12 space-y-4 text-center h-full text-red-600">
+      <div className="flex flex-col items-center justify-center p-12 space-y-4 text-center h-full text-red-600 bg-red-50/10">
         <AlertCircle className="h-16 w-16" />
-        <h3 className="text-xl font-semibold">Erreur de génération</h3>
+        <h3 className="text-xl font-semibold">Échec de l'analyse</h3>
         <p className="text-slate-600">Impossible de générer l'écriture comptable.</p>
-        <Button onClick={onRegenerate} variant="outline" className="mt-4">
+        <Button onClick={onRegenerate} variant="outline" className="mt-4 border-red-200 hover:bg-red-50 text-red-700">
           <RefreshCw className="mr-2 h-4 w-4" /> Réessayer
         </Button>
       </div>
@@ -134,259 +139,254 @@ export function AccountingEntryView({
   if (!entry) return null;
 
   return (
-    <div className="h-full flex flex-col bg-slate-50/50 overflow-hidden">
+    <div className="h-full flex flex-col bg-slate-50/30">
 
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-sidebar-border/50">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-emerald-100 rounded-lg">
-            <BookOpen className="h-5 w-5 text-emerald-700" />
+      {/* Header Fixe */}
+      <div className="flex-none flex items-center justify-between px-8 py-5 bg-white border-b border-sidebar-border/50 shadow-sm z-10 transition-all">
+        <div className="flex items-center gap-4">
+          <div className="p-2.5 bg-violet-100 rounded-xl shadow-sm border border-violet-200">
+            <BookOpen className="h-6 w-6 text-violet-700" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-slate-800">Comptabilisation</h2>
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <span className="font-mono">{entry.journal_code}</span>
-              <span>•</span>
-              <span>{entry.journal_libelle}</span>
+            <h2 className="text-xl font-bold text-slate-800 tracking-tight">Comptabilisation</h2>
+            <div className="flex items-center gap-2 text-sm text-slate-500 mt-0.5">
+              <span className="font-medium text-slate-400">Journal suggéré :</span>
+              <span className="font-mono font-bold bg-slate-100 px-2.5 py-0.5 rounded text-slate-700 border border-slate-200">
+                {entry.journal_code}
+              </span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowChat(!showChat)}
-            className={showChat ? "bg-violet-50 border-violet-200 text-violet-700" : ""}
-          >
-            <MessageCircle className="h-4 w-4 mr-2" />
-            Assistant
-          </Button>
+        <div className="flex items-center gap-3">
           <Button
             onClick={onSave}
             disabled={isSaving || isSaved}
-            className={isSaved ? "bg-emerald-600 hover:bg-emerald-700" : "bg-violet-600 hover:bg-violet-700"}
+            size="lg"
+            className={`shadow-md transition-all font-semibold ${isSaved ? "bg-emerald-600 hover:bg-emerald-700 ring-2 ring-emerald-100" : "bg-violet-600 hover:bg-violet-700 ring-2 ring-violet-100"}`}
           >
             {isSaving ? (
-              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
             ) : isSaved ? (
-              <Check className="h-4 w-4 mr-2" />
+              <Check className="h-5 w-5 mr-2" />
             ) : (
-              <Save className="h-4 w-4 mr-2" />
+              <Save className="h-5 w-5 mr-2" />
             )}
-            {isSaved ? "Enregistré" : "Enregistrer"}
+            {isSaved ? "Validé & Enregistré" : "Valider l'écriture"}
           </Button>
         </div>
       </div>
 
-      {/* Main Content - Grid Layout */}
-      <div className="flex-1 overflow-auto p-6">
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 h-full">
+      {/* Main Content - SCROLLABLE */}
+      <div className="flex-1 overflow-y-auto p-8 scroll-smooth">
+        <div className="flex flex-col gap-6 max-w-5xl mx-auto pb-10">
 
-          {/* COLONNE GAUCHE: Écriture Comptable + Gestion Statut */}
-          <div className="flex flex-col gap-6">
-
-            {/* Carte Écriture */}
-            <Card className="border-sidebar-border/50 shadow-sm flex-grow">
-              <CardHeader className="bg-slate-50 border-b border-sidebar-border/50 py-3">
-                <CardTitle className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                  <BookOpen className="h-4 w-4 text-violet-500" />
-                  Écriture Générée par DeepSeek
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
-                      <TableHead className="w-[80px]">Compte</TableHead>
-                      <TableHead>Libellé</TableHead>
-                      <TableHead className="text-right w-[120px]">Débit</TableHead>
-                      <TableHead className="text-right w-[120px]">Crédit</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {entry.lignes.map((ligne, idx) => (
-                      <TableRow key={idx} className="hover:bg-violet-50/30 transition-colors">
-                        <TableCell className="font-mono font-medium text-violet-700">
-                          {ligne.numero_compte}
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-medium text-slate-700">{ligne.libelle_compte}</div>
-                          <div className="text-xs text-slate-500 mt-0.5">{ligne.libelle_ligne}</div>
-                        </TableCell>
-                        <TableCell className="text-right font-mono tabular-nums text-slate-700">
-                          {ligne.debit > 0 ? formatAmount(ligne.debit) : "-"}
-                        </TableCell>
-                        <TableCell className="text-right font-mono tabular-nums text-slate-700">
-                          {ligne.credit > 0 ? formatAmount(ligne.credit) : "-"}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {/* Totaux */}
-                    <TableRow className="bg-slate-50 font-semibold border-t-2 border-slate-200">
-                      <TableCell colSpan={2} className="text-right pr-4">TOTAUX</TableCell>
-                      <TableCell className="text-right font-mono text-emerald-700">
-                        {formatAmount(entry.total_debit)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-emerald-700">
-                        {formatAmount(entry.total_credit)}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </CardContent>
-              {entry.equilibre && (
-                <div className="bg-emerald-50 border-t border-emerald-100 p-2 flex justify-center">
-                  <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-200 gap-1.5">
-                    <CheckCircle2 className="h-3 w-3" />
-                    Écriture équilibrée
-                  </Badge>
+          {/* Bloc Informations de l'Écriture */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Date & Ref */}
+            <Card className="border shadow-sm bg-white md:col-span-1">
+              <CardContent className="p-4 flex flex-col justify-center h-full gap-3">
+                <div className="flex items-center gap-3">
+                  <Calendar className="h-4 w-4 text-violet-500" />
+                  <span className="text-sm font-medium text-slate-600">Date:</span>
+                  <span className="text-sm font-bold text-slate-800">{formatDate(entry.date_piece)}</span>
                 </div>
-              )}
+                <div className="flex items-center gap-3">
+                  <Hash className="h-4 w-4 text-violet-500" />
+                  <span className="text-sm font-medium text-slate-600">Pièce N°:</span>
+                  <span className="text-sm font-bold text-slate-800 truncate" title={entry.numero_piece}>{entry.numero_piece}</span>
+                </div>
+              </CardContent>
             </Card>
 
-            {/* Carte Gestion Statut Paiement (ASCII Art Style UI) */}
-            <Card className="border-2 border-slate-200 shadow-sm overflow-hidden transform transition-all hover:border-violet-300">
-              <div className="bg-slate-900 text-white p-3 font-mono text-sm flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-emerald-400" />
-                  <span>STATUS_PAIEMENT.CONFIG</span>
+            {/* Tiers & Libellé */}
+            <Card className="border shadow-sm bg-white md:col-span-2">
+              <CardContent className="p-4 flex flex-col justify-center h-full gap-3">
+                <div className="flex items-start gap-3">
+                  <User className="h-4 w-4 text-violet-500 mt-0.5" />
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold uppercase text-slate-400 tracking-wide">Tiers / Partenaire</span>
+                    <span className="text-base font-bold text-slate-800">{entry.tiers_nom || "Non identifié"}</span>
+                  </div>
                 </div>
-                <div className="flex gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
-                  <div className="w-2.5 h-2.5 rounded-full bg-yellow-500"></div>
-                  <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
+                {entry.libelle_general && (
+                  <div className="flex items-start gap-3 border-t border-slate-100 pt-2 mt-1">
+                    <FileText className="h-4 w-4 text-violet-500 mt-0.5" />
+                    <span className="text-sm text-slate-600 italic">"{entry.libelle_general}"</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Carte Écriture - Design Aéré */}
+          <Card className="border-0 shadow-md ring-1 ring-slate-200 bg-white overflow-hidden rounded-xl">
+            <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-4 px-6">
+              <CardTitle className="text-base font-semibold text-slate-700 flex items-center gap-2">
+                <FileCheck className="h-5 w-5 text-violet-500" />
+                Proposition d'écriture comptable
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50/30 hover:bg-slate-50/30 border-b border-slate-100">
+                    <TableHead className="w-[100px] font-bold text-slate-600 py-4 pl-6">Compte</TableHead>
+                    <TableHead className="font-bold text-slate-600 py-4">Libellé de l'écriture</TableHead>
+                    <TableHead className="text-right w-[140px] font-bold text-slate-600 py-4">Débit</TableHead>
+                    <TableHead className="text-right w-[140px] font-bold text-slate-600 py-4 pr-6">Crédit</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {entry.lignes.map((ligne, idx) => (
+                    <TableRow key={idx} className="hover:bg-violet-50/30 transition-colors border-b border-slate-50 last:border-0 group">
+                      <TableCell className="py-5 pl-6 align-top">
+                        <span className="font-mono font-bold text-violet-700 text-base bg-violet-50 px-2 py-1 rounded border border-violet-100 group-hover:bg-white transition-colors">
+                          {ligne.numero_compte}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-5 align-top">
+                        <div className="font-bold text-slate-800 text-base mb-1">{ligne.libelle_compte}</div>
+                        {ligne.libelle_ligne && (
+                          <div className="text-sm text-slate-500 font-light italic flex items-center gap-2">
+                            <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                            {ligne.libelle_ligne}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right py-5 align-top">
+                        {ligne.debit > 0 ? (
+                          <span className="font-mono font-medium text-slate-700 text-base">{formatAmount(ligne.debit)}</span>
+                        ) : <span className="text-slate-300 font-light">-</span>}
+                      </TableCell>
+                      <TableCell className="text-right py-5 pr-6 align-top">
+                        {ligne.credit > 0 ? (
+                          <span className="font-mono font-medium text-slate-700 text-base">{formatAmount(ligne.credit)}</span>
+                        ) : <span className="text-slate-300 font-light">-</span>}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+
+                  {/* Totaux - Style Distinct */}
+                  <TableRow className="bg-slate-50/80 border-t-2 border-slate-200">
+                    <TableCell colSpan={2} className="text-right pr-6 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">
+                      Totaux Généraux
+                    </TableCell>
+                    <TableCell className="text-right py-4 font-mono text-emerald-700 font-bold text-base bg-emerald-50/30 border-l border-slate-200">
+                      {formatAmount(entry.total_debit)}
+                    </TableCell>
+                    <TableCell className="text-right py-4 pr-6 font-mono text-emerald-700 font-bold text-base bg-emerald-50/30 border-l border-slate-200">
+                      {formatAmount(entry.total_credit)}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+            {entry.equilibre && (
+              <div className="bg-emerald-50/50 border-t border-emerald-100 p-3 flex justify-center">
+                <Badge variant="outline" className="bg-white text-emerald-700 border-emerald-200 px-4 py-1.5 shadow-sm gap-2 text-sm font-medium hover:bg-emerald-50">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  Écriture parfaitement équilibrée
+                </Badge>
+              </div>
+            )}
+          </Card>
+
+          {/* Carte Gestion Statut Paiement (Professional UI) */}
+          <Card className="border shadow-md ring-1 ring-slate-200 bg-white overflow-hidden rounded-xl">
+            <div className="bg-slate-800 text-white px-6 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <CreditCard className="h-4 w-4 text-blue-300" />
+                <span className="font-semibold tracking-wide text-sm">CONFIGURATION DU PAIEMENT</span>
+              </div>
+            </div>
+
+            <CardContent className="p-8">
+              {/* Status Actuel - Visualisation */}
+              <div className="mb-8 p-5 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-4">
+                <div className={`p-3 rounded-full shrink-0 ${confirmedStatus === 'paye' ? 'bg-emerald-100 text-emerald-600' :
+                    confirmedStatus === 'non_paye' ? 'bg-amber-100 text-amber-600' :
+                      'bg-blue-100 text-blue-600'
+                  }`}>
+                  <AlertCircle className="h-6 w-6" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-1 block">Configuration actuelle</span>
+                  <strong className="text-lg text-slate-800">
+                    {confirmedStatus === "paye" && "Paiement intégral (Comptant)"}
+                    {confirmedStatus === "non_paye" && "Non payé (À crédit)"}
+                    {confirmedStatus === "partiel" && "Paiement partiel"}
+                    {(!confirmedStatus || confirmedStatus === "inconnu") && "Statut inconnu"}
+                  </strong>
                 </div>
               </div>
 
-              <CardContent className="p-5 bg-white">
-                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-800 flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                  <div>
-                    <strong>Statut actuel : </strong>
-                    {confirmedStatus === "paye" && "✅ Paiement reçu (Journal BQ)"}
-                    {confirmedStatus === "non_paye" && "⏳ Non payé / À crédit (Journal ACHATS/VENTES)"}
-                    {confirmedStatus === "partiel" && "💰 Paiement partiel (Mixte)"}
-                    {(!confirmedStatus || confirmedStatus === "inconnu") && "❓ Inconnu"}
-                  </div>
-                </div>
+              <div className="space-y-6">
+                <Label className="text-sm font-semibold text-slate-700 uppercase tracking-wide block mb-3 pl-1">
+                  Modifier le mode de règlement
+                </Label>
 
-                <div className="space-y-4">
-                  <Label className="text-base font-semibold text-slate-700">
-                    🔄 Changer le statut de paiement :
-                  </Label>
+                <RadioGroup
+                  value={newStatus}
+                  onValueChange={(v) => setNewStatus(v as StatutPaiement)}
+                  className="grid grid-cols-1 md:grid-cols-3 gap-4"
+                >
+                  {/* OPTION 1: Payé */}
+                  <label className={`relative flex flex-col items-center p-4 border rounded-xl cursor-pointer transition-all hover:bg-slate-50 group ${newStatus === 'paye' ? 'border-emerald-500 bg-emerald-50/20 shadow-sm ring-1 ring-emerald-500' : 'border-slate-200'}`}>
+                    <RadioGroupItem value="paye" id="r1" className="sr-only" />
+                    <CheckCircle2 className={`h-8 w-8 mb-2 transition-colors ${newStatus === 'paye' ? 'text-emerald-500' : 'text-slate-300 group-hover:text-slate-400'}`} />
+                    <span className={`font-bold ${newStatus === 'paye' ? 'text-emerald-900' : 'text-slate-700'}`}>Payé</span>
+                    <span className="text-xs text-slate-500 mt-1">Comptant / Banque</span>
+                  </label>
 
-                  <RadioGroup
-                    value={newStatus}
-                    onValueChange={(v) => setNewStatus(v as StatutPaiement)}
-                    className="flex flex-col space-y-2"
-                  >
-                    <div className="flex items-center space-x-2 border p-3 rounded-md hover:bg-slate-50 cursor-pointer transition-colors">
-                      <RadioGroupItem value="paye" id="r1" />
-                      <Label htmlFor="r1" className="cursor-pointer flex-1">
-                        ✅ Paiement reçu (Comptant/Banque)
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2 border p-3 rounded-md hover:bg-slate-50 cursor-pointer transition-colors">
-                      <RadioGroupItem value="non_paye" id="r2" />
-                      <Label htmlFor="r2" className="cursor-pointer flex-1">
-                        ⏳ Non payé (Créance/Dette)
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2 border p-3 rounded-md hover:bg-slate-50 cursor-pointer transition-colors">
-                      <RadioGroupItem value="partiel" id="r3" />
-                      <Label htmlFor="r3" className="cursor-pointer flex-1">
-                        💰 Paiement partiel
-                      </Label>
-                    </div>
-                  </RadioGroup>
+                  {/* OPTION 2: Non Payé */}
+                  <label className={`relative flex flex-col items-center p-4 border rounded-xl cursor-pointer transition-all hover:bg-slate-50 group ${newStatus === 'non_paye' ? 'border-amber-500 bg-amber-50/20 shadow-sm ring-1 ring-amber-500' : 'border-slate-200'}`}>
+                    <RadioGroupItem value="non_paye" id="r2" className="sr-only" />
+                    <Clock className={`h-8 w-8 mb-2 transition-colors ${newStatus === 'non_paye' ? 'text-amber-500' : 'text-slate-300 group-hover:text-slate-400'}`} />
+                    <span className={`font-bold ${newStatus === 'non_paye' ? 'text-amber-900' : 'text-slate-700'}`}>À Crédit</span>
+                    <span className="text-xs text-slate-500 mt-1">Dette fournisseur</span>
+                  </label>
 
-                  {newStatus === "partiel" && (
-                    <div className="ml-6 pl-4 border-l-2 border-slate-200">
-                      <Label htmlFor="partial-amount-edit" className="text-sm">Montant payé :</Label>
+                  {/* OPTION 3: Partiel */}
+                  <label className={`relative flex flex-col items-center p-4 border rounded-xl cursor-pointer transition-all hover:bg-slate-50 group ${newStatus === 'partiel' ? 'border-blue-500 bg-blue-50/20 shadow-sm ring-1 ring-blue-500' : 'border-slate-200'}`}>
+                    <RadioGroupItem value="partiel" id="r3" className="sr-only" />
+                    <PieChart className={`h-8 w-8 mb-2 transition-colors ${newStatus === 'partiel' ? 'text-blue-500' : 'text-slate-300 group-hover:text-slate-400'}`} />
+                    <span className={`font-bold ${newStatus === 'partiel' ? 'text-blue-900' : 'text-slate-700'}`}>Partiel</span>
+                    <span className="text-xs text-slate-500 mt-1">Acompte versé</span>
+                  </label>
+                </RadioGroup>
+
+                {newStatus === "partiel" && (
+                  <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100 animate-in fade-in slide-in-from-top-2">
+                    <Label htmlFor="partial-amount-edit" className="text-xs font-bold text-blue-700 uppercase mb-2 block">Montant déjà réglé</Label>
+                    <div className="relative">
                       <Input
                         id="partial-amount-edit"
                         type="number"
                         value={newPartialAmount || ""}
                         onChange={(e) => setNewPartialAmount(parseFloat(e.target.value))}
-                        className="mt-1"
-                        placeholder="Ex: 500000"
+                        className="pl-4 pr-16 h-12 text-lg font-mono border-blue-200 focus:border-blue-400 focus:ring-blue-400"
+                        placeholder="0"
                       />
+                      <span className="absolute right-4 top-3 text-sm font-bold text-slate-400">FCFA</span>
                     </div>
-                  )}
-
-                  <div className="pt-2 flex justify-end">
-                    <Button
-                      onClick={handleRegenerateClick}
-                      variant="outline"
-                      className="border-violet-200 hover:bg-violet-50 text-violet-700"
-                      disabled={newStatus === confirmedStatus && newPartialAmount === confirmedPartialAmount}
-                    >
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Régénérer l'écriture
-                    </Button>
                   </div>
+                )}
+
+                <div className="pt-6 flex justify-end border-t border-slate-100 mt-4">
+                  <Button
+                    onClick={handleRegenerateClick}
+                    className={`transition-all w-full md:w-auto ${newStatus !== confirmedStatus || newPartialAmount !== confirmedPartialAmount ? 'bg-violet-600 hover:bg-violet-700 shadow-md' : 'bg-slate-100 text-slate-400 hover:bg-slate-200 border border-slate-200'}`}
+                    disabled={newStatus === confirmedStatus && newPartialAmount === confirmedPartialAmount}
+                    size="lg"
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${newStatus !== confirmedStatus ? 'animate-spin-slow' : ''}`} />
+                    Mettre à jour l'écriture
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-
-          </div>
-
-          {/* COLONNE DROITE: Articles extraits par Qwen */}
-          <div className="flex flex-col gap-4 h-full overflow-hidden">
-            <Card className="border-sidebar-border/50 shadow-sm h-full flex flex-col">
-              <CardHeader className="bg-slate-50 border-b border-sidebar-border/50 py-3">
-                <CardTitle className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                  <List className="h-4 w-4 text-blue-500" />
-                  Articles extraits (Qwen)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 flex-1 overflow-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right w-[60px]">Qté</TableHead>
-                      <TableHead className="text-right w-[100px]">P.U.</TableHead>
-                      <TableHead className="text-right w-[110px]">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(invoiceData as any)?.lignes?.length > 0 ? (
-                      (invoiceData as any).lignes.map((article: any, idx: number) => (
-                        <TableRow key={idx}>
-                          <TableCell className="font-medium text-slate-700 text-sm">
-                            {article.description || "Article sans nom"}
-                          </TableCell>
-                          <TableCell className="text-right text-slate-500">
-                            {article.quantite}
-                          </TableCell>
-                          <TableCell className="text-right text-slate-500 tabular-nums">
-                            {formatAmount(article.prix_unitaire)}
-                          </TableCell>
-                          <TableCell className="text-right font-semibold text-slate-700 tabular-nums">
-                            {formatAmount(article.montant_total)}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-center py-8 text-slate-400">
-                          Aucun article détecté ou format de données inconnu.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-              <CardFooter className="bg-slate-50 border-t border-sidebar-border/50 py-3 flex justify-between">
-                <span className="text-sm text-slate-500">Total HT</span>
-                <span className="font-bold text-slate-800">
-                  {formatAmount((invoiceData as any)?.montant_ht)} FCFA
-                </span>
-              </CardFooter>
-            </Card>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
 
         </div>
       </div>
