@@ -305,6 +305,7 @@ export function JournauxView() {
               </SelectItem>
               {Array.from({ length: 24 }, (_, i) => {
                 const date = new Date();
+                date.setDate(1); // Éviter les problèmes de fin de mois (ex: 30 fév -> mars)
                 date.setMonth(date.getMonth() - i);
                 const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
                 return (

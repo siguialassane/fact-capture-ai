@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from "react";
 import { DashboardSidebar } from "./DashboardSidebar";
+import { StatsDashboard } from "./StatsDashboard";
 import { DocumentViewer } from "./DocumentViewer";
 import { InvoiceDataPanel } from "./InvoiceDataPanel";
 import { AccountingEntryView } from "@/components/accounting";
@@ -455,8 +456,9 @@ export function DesktopDashboard() {
         onItemClick={setActiveMenuItem}
       />
 
-      {(activeMenuItem === "journaux" || activeMenuItem === "grand-livre" || activeMenuItem === "lettrage" || activeMenuItem === "etats-financiers") ? (
+      {(activeMenuItem === "dashboard" || activeMenuItem === "journaux" || activeMenuItem === "grand-livre" || activeMenuItem === "lettrage" || activeMenuItem === "etats-financiers") ? (
         <div className="flex-1 overflow-auto">
+          {activeMenuItem === "dashboard" && <StatsDashboard />}
           {activeMenuItem === "journaux" && <JournauxView />}
           {activeMenuItem === "grand-livre" && <GrandLivreView />}
           {activeMenuItem === "lettrage" && <LettrageView />}

@@ -12,7 +12,7 @@ import type { InvoiceAIResult } from "../ai/types";
 
 // Configuration OpenRouter
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "google/gemini-3-flash-preview";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "moonshotai/kimi-k2-thinking";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 /**
@@ -60,11 +60,38 @@ export interface AccountingResult {
   erreurs?: string[];
 }
 
-/**
- * Contexte comptable pour Gemini
- */
 const ACCOUNTING_CONTEXT = `Tu es un expert-comptable certifié spécialisé dans la comptabilité SYSCOHADA (Système Comptable Ouest-Africain).
 Tu travailles pour l'entreprise EXIAS SARL, une société de vente de matériel informatique basée à Abidjan, Côte d'Ivoire.
+
+## ⚠️⚠️⚠️ RÈGLE CRITIQUE N°1 - IDENTIFICATION VENTE vs ACHAT ⚠️⚠️⚠️
+
+### CONTEXTE IMPORTANT :
+Les données JSON que tu reçois proviennent d'une IA d'extraction (Qwen) qui analyse visuellement les factures.
+- Le champ "fournisseur" dans le JSON = l'ÉMETTEUR de la facture (celui qui l'a créée)
+- Le champ "client" dans le JSON = le DESTINATAIRE de la facture
+
+### RÈGLE DE DÉCISION ABSOLUE :
+
+**NOUS SOMMES : EXIAS - Solutions Informatiques**
+
+Pour déterminer si c'est une VENTE ou un ACHAT, regarde le champ "fournisseur" du JSON :
+
+✅ Si "fournisseur" contient "EXIAS" → **C'EST UNE VENTE** (NOUS avons émis cette facture)
+   - Journal : VE (Ventes)
+   - Le "client" du JSON = NOTRE CLIENT (il nous doit de l'argent)
+   - Comptes : 4111 (Clients) au DÉBIT / 70xx (Ventes) au CRÉDIT / 4431 (TVA collectée) au CRÉDIT
+
+❌ Si "fournisseur" NE contient PAS "EXIAS" → **C'EST UN ACHAT** (nous avons REÇU cette facture)
+   - Journal : AC ou BQ ou CA selon le paiement
+   - Le "fournisseur" du JSON = notre fournisseur (nous lui devons de l'argent)
+   - Comptes : 60xx (Achats) au DÉBIT / 4452 (TVA déductible) au DÉBIT / 4011 ou trésorerie au CRÉDIT
+
+### EXEMPLE CONCRET :
+JSON reçu : { "fournisseur": "EXIAS - Solutions Informatiques", "client": "Cabinet Koffi" }
+→ "fournisseur" contient "EXIAS" → C'EST UNE VENTE !
+→ Cabinet Koffi est NOTRE CLIENT
+→ Journal VE, 4111 (Clients) au débit
+
 
 ## PLAN COMPTABLE SYSCOHADA - Comptes principaux
 
@@ -353,7 +380,25 @@ function buildDynamicAccountingContext(dbContext?: AccountingContext): string {
   const clients = tiers.filter(t => t.type_tiers === 'client');
 
   return `Tu es un expert-comptable certifié spécialisé dans la comptabilité SYSCOHADA (Système Comptable Ouest-Africain).
-${entreprise ? `Tu travailles pour l'entreprise ${entreprise.nom} (${entreprise.forme_juridique}), basée à ${entreprise.ville}, ${entreprise.pays}.` : ''}
+${entreprise ? `Tu travailles pour l'entreprise ${entreprise.nom} (${entreprise.forme_juridique}), basée à ${entreprise.ville}, ${entreprise.pays}.` : "Tu travailles pour l'entreprise EXIAS - Solutions Informatiques, basée à Abidjan, Côte d'Ivoire."}
+
+## ⚠️⚠️⚠️ RÈGLE CRITIQUE N°1 - IDENTIFICATION VENTE vs ACHAT ⚠️⚠️⚠️
+
+**NOTRE ENTREPRISE : EXIAS - Solutions Informatiques**
+
+Les données JSON que tu reçois contiennent un champ "fournisseur" qui représente l'ÉMETTEUR de la facture.
+
+### RÈGLE DE DÉCISION ABSOLUE :
+
+✅ Si le champ "fournisseur" contient "EXIAS" → **C'EST UNE VENTE** (nous avons ÉMIS cette facture)
+   - Journal : VE (Ventes) si à crédit, BQ si payée par banque, CA si espèces
+   - Le "client" du JSON = NOTRE CLIENT (il nous doit de l'argent)
+   - Comptes : 4111 (Clients) au DÉBIT / 70xx (Ventes) au CRÉDIT / 4431 (TVA collectée) au CRÉDIT
+
+❌ Si le champ "fournisseur" NE contient PAS "EXIAS" → **C'EST UN ACHAT** (nous avons REÇU cette facture)
+   - Journal : AC si à crédit, BQ si payée par banque, CA si espèces
+   - Le "fournisseur" du JSON = notre fournisseur (nous lui devons de l'argent)
+   - Comptes : 60xx (Achats) au DÉBIT / 4452 (TVA déductible) au DÉBIT / 4011 ou trésorerie au CRÉDIT
 
 ## PLAN COMPTABLE SYSCOHADA - Comptes disponibles
 
@@ -363,59 +408,52 @@ ${(comptesParClasse[4] || []).map(c => `- ${c.numero_compte} - ${c.libelle}`).jo
 ### CLASSE 5 - COMPTES DE TRÉSORERIE
 ${(comptesParClasse[5] || []).map(c => `- ${c.numero_compte} - ${c.libelle}`).join('\n')}
 
-### CLASSE 6 - COMPTES DE CHARGES
+### CLASSE 6 - COMPTES DE CHARGES (pour les ACHATS)
 ${(comptesParClasse[6] || []).map(c => `- ${c.numero_compte} - ${c.libelle}`).join('\n')}
 
-### CLASSE 7 - COMPTES DE PRODUITS
+### CLASSE 7 - COMPTES DE PRODUITS (pour les VENTES)
 ${(comptesParClasse[7] || []).map(c => `- ${c.numero_compte} - ${c.libelle}`).join('\n')}
 
 ## TAUX DE TVA
 ${taux_tva.map(t => `- ${t.libelle}: ${t.taux}%`).join('\n')}
 
-## JOURNAUX COMPTABLES - RÈGLES DE SÉLECTION STRICTES
+## JOURNAUX COMPTABLES
 ${journaux.map(j => `- ${j.code} - ${j.libelle} (${j.type_journal})`).join('\n')}
 
-⚠️ LE CHOIX DU JOURNAL DÉPEND DU MODE DE PAIEMENT ⚠️
+## RÈGLES COMPTABLES - ACHATS (quand fournisseur n'est PAS EXIAS)
 
-### CA - Journal de Caisse = Paiements en ESPÈCES
-- Tickets de caisse, Factures payées comptant en espèces
-- Contrepartie: compte 571 (Caisse)
+### ACHAT - Ticket de caisse (espèces) → Journal CA
+Débit: 6xxx (Charge) HT | Débit: 4452 (TVA déductible) | Crédit: 571 (Caisse) TTC
 
-### BQ - Journal de Banque = Paiements BANCAIRES
-- Cartes bancaires, Virements, Chèques
-- Contrepartie: compte 521x (Banque)
+### ACHAT - Facture à crédit → Journal AC  
+Débit: 6xxx (Charge) HT | Débit: 4452 (TVA déductible) | Crédit: 4011 (Fournisseurs) TTC
 
-### AC - Journal des Achats = Factures fournisseurs À CRÉDIT (non payées)
-- Factures avec échéance de paiement
-- Contrepartie: compte 4011 (Fournisseurs)
+### ACHAT - Facture payée par banque → Journal BQ
+Débit: 6xxx (Charge) HT | Débit: 4452 (TVA déductible) | Crédit: 521x (Banque) TTC
 
-### VE - Journal des Ventes = Factures clients À CRÉDIT (non encaissées)
-- Factures avec échéance de paiement
-- Contrepartie: compte 4111 (Clients)
+## RÈGLES COMPTABLES - VENTES (quand fournisseur EST EXIAS)
+
+### VENTE - Facture client à crédit → Journal VE
+Débit: 4111 (Clients) TTC | Crédit: 70xx (Ventes) HT | Crédit: 4431 (TVA collectée)
+
+### VENTE - Encaissement espèces → Journal CA
+Débit: 571 (Caisse) TTC | Crédit: 70xx (Ventes) HT | Crédit: 4431 (TVA collectée)
+
+### VENTE - Encaissement bancaire → Journal BQ
+Débit: 521x (Banque) TTC | Crédit: 70xx (Ventes) HT | Crédit: 4431 (TVA collectée)
 
 ## TIERS ENREGISTRÉS
 
 ### Fournisseurs connus:
-${fournisseurs.map(f => `- ${f.code}: ${f.nom} (compte par défaut: ${f.numero_compte_defaut || '4011'})`).join('\n')}
+${fournisseurs.map(f => `- ${f.code}: ${f.nom} (compte: ${f.numero_compte_defaut || '4011'})`).join('\n')}
 
 ### Clients connus:
-${clients.map(c => `- ${c.code}: ${c.nom} (compte par défaut: ${c.numero_compte_defaut || '4111'})`).join('\n')}
+${clients.map(c => `- ${c.code}: ${c.nom} (compte: ${c.numero_compte_defaut || '4111'})`).join('\n')}
 
-## RÈGLES COMPTABLES SELON LE TYPE DE DOCUMENT
-
-### TICKET DE CAISSE (achat comptant espèces) → Journal CA
-Débit: 6xxx (Charge) HT | Débit: 4452 (TVA) | Crédit: 571 (Caisse) TTC
-
-### FACTURE FOURNISSEUR À CRÉDIT → Journal AC  
-Débit: 6xxx (Charge) HT | Débit: 4452 (TVA) | Crédit: 4011 (Fournisseurs) TTC
-
-### FACTURE PAYÉE PAR CARTE/VIREMENT → Journal BQ
-Débit: 6xxx (Charge) HT | Débit: 4452 (TVA) | Crédit: 521x (Banque) TTC
-
-### Principes:
+## Principes:
+- TOUJOURS vérifier si fournisseur = EXIAS pour déterminer VENTE vs ACHAT
 - Une écriture doit TOUJOURS être équilibrée (Total Débit = Total Crédit)
-- Le libellé doit mentionner le numéro de facture/ticket et le nom du tiers
-- UN TICKET = CAISSE (571), UNE FACTURE À CRÉDIT = FOURNISSEUR (4011)
+- Le libellé doit mentionner le numéro de facture et le nom du tiers
 `;
 }
 

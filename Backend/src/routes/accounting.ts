@@ -292,7 +292,7 @@ accounting.post(
           total_credit: ecriture.total_credit,
           statut: "brouillon",
           genere_par_ia: true,
-          ia_model: iaModel || "google/gemini-3-flash-preview",
+          ia_model: iaModel || "moonshotai/kimi-k2-thinking",
           ia_reasoning: iaReasoning || ecriture.reasoning,
           ia_suggestions: iaSuggestions ? JSON.stringify(iaSuggestions) : null,
           notes: ecriture.commentaires,
@@ -532,7 +532,7 @@ accounting.post(
 
     try {
       const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-      const GEMINI_MODEL = process.env.GEMINI_MODEL || "google/gemini-3-flash-preview";
+      const GEMINI_MODEL = process.env.GEMINI_MODEL || "moonshotai/kimi-k2-thinking";
 
       if (!OPENROUTER_API_KEY) {
         return c.json({

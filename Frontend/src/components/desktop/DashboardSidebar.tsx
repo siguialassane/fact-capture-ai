@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { 
-  LayoutDashboard, 
-  FileText, 
-  Settings, 
-  History, 
+import {
+  LayoutDashboard,
+  FileText,
+  Settings,
+  History,
   HelpCircle,
   ChevronRight,
   BookOpen,
@@ -11,6 +11,8 @@ import {
   Link2,
   ScrollText,
   FileBarChart2,
+  FileSearch,
+  LayoutTemplate
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +22,8 @@ interface SidebarProps {
 }
 
 const menuItems = [
-  { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
+  { id: "dashboard", label: "Tableau de bord", icon: LayoutTemplate },
+  { id: "analysis", label: "Analyse Facture", icon: FileSearch },
   { id: "accounting", label: "Écriture Comptable", icon: BookOpen },
   { id: "journaux", label: "Journaux", icon: ScrollText },
   { id: "grand-livre", label: "Grand Livre", icon: BookOpenCheck },
@@ -68,15 +71,15 @@ export function DashboardSidebar({ activeItem = "dashboard", onItemClick }: Side
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeItem === item.id;
-            
+
             return (
               <li key={item.id}>
                 <button
                   onClick={() => onItemClick?.(item.id)}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
-                    isActive 
-                      ? "bg-primary text-primary-foreground" 
+                    isActive
+                      ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                 >

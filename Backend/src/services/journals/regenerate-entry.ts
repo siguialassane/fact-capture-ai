@@ -10,7 +10,7 @@ import type { JournalCode } from "./types";
 
 // Configuration OpenRouter
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const DEEPSEEK_MODEL = process.env.GEMINI_MODEL || "deepseek/deepseek-chat";
+const KIMI_MODEL = process.env.GEMINI_MODEL || "moonshotai/kimi-k2-thinking";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 /**
@@ -252,7 +252,7 @@ export async function regenerateEntryForJournal(
                 "X-Title": "Fact Capture AI - Journal Regeneration",
             },
             body: JSON.stringify({
-                model: DEEPSEEK_MODEL,
+                model: KIMI_MODEL,
                 messages: [
                     {
                         role: "user",

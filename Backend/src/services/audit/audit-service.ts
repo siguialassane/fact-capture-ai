@@ -54,7 +54,7 @@ async function callGeminiAudit(
       "X-Title": "Fact Capture AI - Audit",
     },
     body: JSON.stringify({
-      model: config.openrouter.geminiModel || "deepseek/deepseek-chat",
+      model: config.openrouter.geminiModel || "moonshotai/kimi-k2-thinking",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },

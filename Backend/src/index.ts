@@ -10,6 +10,7 @@ console.log(`📍 Environment: ${config.nodeEnv}`);
 export default {
   port,
   fetch: app.fetch,
+  idleTimeout: 255, // Augmenter le timeout pour les requêtes IA longues
 }
 
 console.log(`✅ Server running on http://localhost:${port}`);
