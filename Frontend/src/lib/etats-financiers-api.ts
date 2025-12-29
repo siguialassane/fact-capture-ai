@@ -147,8 +147,8 @@ function getMockBilan(exercice: string): Bilan {
       lignes: [
         { compte: "10", libelle: "Capital social", montant: 0 },
         { compte: "11", libelle: "Réserves", montant: 0 },
-        { compte: "12", libelle: "Report à nouveau", montant: 0 },
-        { compte: "13", libelle: "Résultat de l'exercice", montant: 0 },
+        { compte: "12", libelle: "Résultat de l'exercice", montant: 0 },
+        { compte: "13", libelle: "Report à nouveau", montant: 0 },
       ],
     },
     dettes: {

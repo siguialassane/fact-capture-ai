@@ -151,8 +151,8 @@ function getLibelleCompte(numero: string): string {
   const libelles: Record<string, string> = {
     "10": "Capital social",
     "11": "Réserves",
-    "12": "Report à nouveau",
-    "13": "Résultat net",
+    "12": "Résultat de l'exercice",
+    "13": "Report à nouveau",
     "16": "Emprunts et dettes",
     "20": "Charges immobilisées",
     "21": "Immobilisations incorporelles",
