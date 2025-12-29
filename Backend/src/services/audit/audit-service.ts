@@ -54,7 +54,9 @@ async function callGeminiAudit(
       "X-Title": "Fact Capture AI - Audit",
     },
     body: JSON.stringify({
-      model: config.openrouter.geminiModel || "moonshotai/kimi-k2-thinking",
+      // Using Claude 3.5 Sonnet for more accurate accounting analysis
+      // Kimi was producing too many false positives (hallucinations)
+      model: "anthropic/claude-3.5-sonnet",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
