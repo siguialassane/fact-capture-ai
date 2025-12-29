@@ -183,6 +183,7 @@ async function getAuditData(exercice: string) {
 
 /**
  * Construit le bilan à partir des soldes
+ * IMPORTANT: Inclut le Résultat Net dans les Capitaux Propres pour équilibrer le bilan
  */
 function construireBilan(soldesParCompte: Record<string, { debit: number; credit: number; solde: number }>) {
   const bilan = {
@@ -201,6 +202,10 @@ function construireBilan(soldesParCompte: Record<string, { debit: number; credit
     equilibre: false,
     ecart: 0,
   };
+
+  // Calculer le Résultat Net (Produits - Charges) pour l'inclure dans les Capitaux Propres
+  let totalProduits = 0;
+  let totalCharges = 0;
 
   for (const [compte, data] of Object.entries(soldesParCompte)) {
     const classe = compte.charAt(0);
@@ -262,7 +267,22 @@ function construireBilan(soldesParCompte: Record<string, { debit: number; credit
         bilan.passif.capitaux.total += Math.abs(solde);
         bilan.passif.capitaux.comptes.push(entry);
         break;
+      case "6": // Charges
+        totalCharges += Math.abs(solde);
+        break;
+      case "7": // Produits
+        totalProduits += Math.abs(solde);
+        break;
     }
+  }
+
+  // IMPORTANT: Ajouter le Résultat Net aux Capitaux Propres
+  // C'est le principe fondamental de la comptabilité: Actif = Passif + Capitaux Propres
+  // Les Capitaux Propres incluent le Résultat de l'exercice (Produits - Charges)
+  const resultatNet = totalProduits - totalCharges;
+  if (resultatNet !== 0) {
+    bilan.passif.capitaux.total += resultatNet;
+    bilan.passif.capitaux.comptes.push({ compte: "13", solde: resultatNet });
   }
 
   bilan.actif.total =
