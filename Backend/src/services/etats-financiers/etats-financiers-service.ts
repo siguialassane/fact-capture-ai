@@ -283,10 +283,10 @@ export async function getBilan(exercice: string): Promise<Bilan> {
     montant: Math.abs(c.solde),
   }));
 
-  // Ajouter le résultat net comme ligne des capitaux propres (compte 13)
+  // Ajouter le résultat net comme ligne des capitaux propres (compte 12 - Résultat de l'exercice)
   if (resultatNet !== 0) {
     capitauxLignes.push({
-      compte: "13",
+      compte: "12",
       libelle: "Résultat de l'exercice",
       montant: resultatNet, // Peut être négatif si perte
     });

@@ -311,7 +311,7 @@ function construireBilan(soldesParCompte: Record<string, { debit: number; credit
   const resultatNet = totalProduits - totalCharges;
   if (resultatNet !== 0) {
     bilan.passif.capitaux.total += resultatNet;
-    bilan.passif.capitaux.comptes.push({ compte: "13", montant: resultatNet, sens: resultatNet >= 0 ? "créditeur" : "débiteur" });
+    bilan.passif.capitaux.comptes.push({ compte: "12", montant: resultatNet, sens: resultatNet >= 0 ? "créditeur" : "débiteur" });
   }
 
   bilan.actif.total =
