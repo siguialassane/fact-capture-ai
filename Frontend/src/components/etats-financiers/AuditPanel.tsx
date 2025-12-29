@@ -163,11 +163,10 @@ export function AuditPanel({ exercice }: AuditPanelProps) {
           <div className="space-y-4">
             {/* Résumé */}
             <div
-              className={`p-4 rounded-lg border ${
-                auditResult.status === "CONFORME"
+              className={`p-4 rounded-lg border ${auditResult.status === "CONFORME"
                   ? "bg-emerald-50 border-emerald-200"
                   : "bg-red-50 border-red-200"
-              }`}
+                }`}
             >
               <div className="flex items-start gap-3">
                 {getStatusIcon(auditResult.status)}
@@ -240,31 +239,31 @@ export function AuditPanel({ exercice }: AuditPanelProps) {
                           <p className="text-sm text-red-600">{anomalie.impact}</p>
                         </div>
 
-                        {(anomalie.montant_errone !== undefined ||
-                          anomalie.montant_attendu !== undefined) && (
-                          <div className="flex gap-4">
-                            {anomalie.montant_errone !== undefined && (
-                              <div>
-                                <span className="text-xs font-semibold text-slate-500 uppercase">
-                                  Montant erroné
-                                </span>
-                                <p className="text-sm font-mono text-red-600">
-                                  {anomalie.montant_errone.toLocaleString()} FCFA
-                                </p>
-                              </div>
-                            )}
-                            {anomalie.montant_attendu !== undefined && (
-                              <div>
-                                <span className="text-xs font-semibold text-slate-500 uppercase">
-                                  Montant attendu
-                                </span>
-                                <p className="text-sm font-mono text-emerald-600">
-                                  {anomalie.montant_attendu.toLocaleString()} FCFA
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                        {(anomalie.montant_errone != null ||
+                          anomalie.montant_attendu != null) && (
+                            <div className="flex gap-4">
+                              {anomalie.montant_errone != null && (
+                                <div>
+                                  <span className="text-xs font-semibold text-slate-500 uppercase">
+                                    Montant erroné
+                                  </span>
+                                  <p className="text-sm font-mono text-red-600">
+                                    {anomalie.montant_errone.toLocaleString()} FCFA
+                                  </p>
+                                </div>
+                              )}
+                              {anomalie.montant_attendu != null && (
+                                <div>
+                                  <span className="text-xs font-semibold text-slate-500 uppercase">
+                                    Montant attendu
+                                  </span>
+                                  <p className="text-sm font-mono text-emerald-600">
+                                    {anomalie.montant_attendu.toLocaleString()} FCFA
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                         <div>
                           <span className="text-xs font-semibold text-slate-500 uppercase">
