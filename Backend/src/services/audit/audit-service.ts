@@ -186,17 +186,20 @@ async function getAuditData(exercice: string) {
  * IMPORTANT: Inclut le Résultat Net dans les Capitaux Propres pour équilibrer le bilan
  */
 function construireBilan(soldesParCompte: Record<string, { debit: number; credit: number; solde: number }>) {
+  // Type pour les entrées de compte dans le bilan
+  type CompteEntry = { compte: string; montant: number; sens: string };
+
   const bilan = {
     actif: {
-      immobilise: { total: 0, comptes: [] as { compte: string; solde: number }[] },
-      circulant: { total: 0, comptes: [] as { compte: string; solde: number }[] },
-      tresorerie: { total: 0, comptes: [] as { compte: string; solde: number }[] },
+      immobilise: { total: 0, comptes: [] as CompteEntry[] },
+      circulant: { total: 0, comptes: [] as CompteEntry[] },
+      tresorerie: { total: 0, comptes: [] as CompteEntry[] },
       total: 0,
     },
     passif: {
-      capitaux: { total: 0, comptes: [] as { compte: string; solde: number }[] },
-      dettes: { total: 0, comptes: [] as { compte: string; solde: number }[] },
-      tresorerie: { total: 0, comptes: [] as { compte: string; solde: number }[] },
+      capitaux: { total: 0, comptes: [] as CompteEntry[] },
+      dettes: { total: 0, comptes: [] as CompteEntry[] },
+      tresorerie: { total: 0, comptes: [] as CompteEntry[] },
       total: 0,
     },
     equilibre: false,
@@ -210,68 +213,72 @@ function construireBilan(soldesParCompte: Record<string, { debit: number; credit
   for (const [compte, data] of Object.entries(soldesParCompte)) {
     const classe = compte.charAt(0);
     const solde = data.solde;
-    const entry = { compte, solde };
+    // IMPORTANT: Toujours stocker des montants POSITIFS dans le bilan
+    // pour éviter de confondre l'IA avec des soldes négatifs (normaux pour comptes créditeurs)
+    const montant = Math.abs(solde);
+    const sens = solde >= 0 ? "débiteur" : "créditeur";
+    const entry = { compte, montant, sens };
 
     switch (classe) {
       case "2": // Immobilisations
-        bilan.actif.immobilise.total += Math.abs(solde);
+        bilan.actif.immobilise.total += montant;
         bilan.actif.immobilise.comptes.push(entry);
         break;
       case "3": // Stocks
-        bilan.actif.circulant.total += Math.abs(solde);
+        bilan.actif.circulant.total += montant;
         bilan.actif.circulant.comptes.push(entry);
         break;
       case "4": // Tiers
         // Classification fine des comptes de tiers
         if (compte.startsWith("40")) {
           // Fournisseurs → PASSIF
-          bilan.passif.dettes.total += Math.abs(solde);
+          bilan.passif.dettes.total += montant;
           bilan.passif.dettes.comptes.push(entry);
         } else if (compte.startsWith("41")) {
           // Clients → ACTIF
-          bilan.actif.circulant.total += Math.abs(solde);
+          bilan.actif.circulant.total += montant;
           bilan.actif.circulant.comptes.push(entry);
         } else if (compte.startsWith("4452") || compte.startsWith("4456")) {
           // TVA récupérable/déductible → ACTIF (créance sur État)
-          bilan.actif.circulant.total += Math.abs(solde);
+          bilan.actif.circulant.total += montant;
           bilan.actif.circulant.comptes.push(entry);
         } else if (compte.startsWith("443") || compte.startsWith("4431") || compte.startsWith("4432")) {
           // TVA collectée/à payer → PASSIF
-          bilan.passif.dettes.total += Math.abs(solde);
+          bilan.passif.dettes.total += montant;
           bilan.passif.dettes.comptes.push(entry);
         } else if (compte.startsWith("43") || compte.startsWith("44")) {
           // Autres (organismes sociaux, État) → généralement PASSIF
-          bilan.passif.dettes.total += Math.abs(solde);
+          bilan.passif.dettes.total += montant;
           bilan.passif.dettes.comptes.push(entry);
         } else {
           // Par défaut selon le solde
           if (solde > 0) {
-            bilan.actif.circulant.total += solde;
+            bilan.actif.circulant.total += montant;
             bilan.actif.circulant.comptes.push(entry);
           } else {
-            bilan.passif.dettes.total += Math.abs(solde);
+            bilan.passif.dettes.total += montant;
             bilan.passif.dettes.comptes.push(entry);
           }
         }
         break;
       case "5": // Trésorerie
         if (solde >= 0) {
-          bilan.actif.tresorerie.total += solde;
+          bilan.actif.tresorerie.total += montant;
           bilan.actif.tresorerie.comptes.push(entry);
         } else {
-          bilan.passif.tresorerie.total += Math.abs(solde);
+          bilan.passif.tresorerie.total += montant;
           bilan.passif.tresorerie.comptes.push(entry);
         }
         break;
       case "1": // Capitaux
-        bilan.passif.capitaux.total += Math.abs(solde);
+        bilan.passif.capitaux.total += montant;
         bilan.passif.capitaux.comptes.push(entry);
         break;
       case "6": // Charges
-        totalCharges += Math.abs(solde);
+        totalCharges += montant;
         break;
       case "7": // Produits
-        totalProduits += Math.abs(solde);
+        totalProduits += montant;
         break;
     }
   }
@@ -282,7 +289,7 @@ function construireBilan(soldesParCompte: Record<string, { debit: number; credit
   const resultatNet = totalProduits - totalCharges;
   if (resultatNet !== 0) {
     bilan.passif.capitaux.total += resultatNet;
-    bilan.passif.capitaux.comptes.push({ compte: "13", solde: resultatNet });
+    bilan.passif.capitaux.comptes.push({ compte: "13", montant: resultatNet, sens: resultatNet >= 0 ? "créditeur" : "débiteur" });
   }
 
   bilan.actif.total =
