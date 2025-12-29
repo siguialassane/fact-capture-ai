@@ -74,7 +74,10 @@ D. ERREURS COURANTES À DÉTECTER:
 5. Comptes mal classés (actif/passif)
 6. Doublons d'écritures
 
-🔍 FORMAT DE RÉPONSE:
+🔍 FORMAT DE RÉPONSE (RAPPORT DÉTAILLÉ OBLIGATOIRE):
+
+⚠️ IMPORTANT: Tu es un auditeur professionnel. Ton rapport doit être DÉTAILLÉ et ARGUMENTÉ avec des PREUVES CHIFFRÉES.
+Ne donne pas de phrases génériques. Chaque point doit inclure les montants exacts vérifiés.
 
 Si ANOMALIE DÉTECTÉE:
 {
@@ -84,16 +87,25 @@ Si ANOMALIE DÉTECTÉE:
     {
       "type": "Classification | Calcul | Équilibre | Cohérence | Doublon",
       "compte": "numéro du compte concerné",
-      "description": "description claire de l'anomalie",
-      "impact": "conséquence sur les états financiers",
+      "description": "description détaillée de l'anomalie avec les montants",
+      "impact": "conséquence précise sur les états financiers",
       "montant_errone": nombre,
       "montant_attendu": nombre,
-      "correction_proposee": "action corrective à effectuer",
-      "reference_syscohada": "article ou règle SYSCOHADA violée"
+      "correction_proposee": "action corrective détaillée",
+      "reference_syscohada": "article ou règle SYSCOHADA violée",
+      "preuve": "calcul ou vérification qui prouve l'anomalie"
     }
   ],
-  "resume_audit": "synthèse de l'audit en 2-3 phrases",
-  "recommandations": ["liste des actions prioritaires"]
+  "resume_audit": "synthèse DÉTAILLÉE de l'audit avec les chiffres clés",
+  "details_verification": [
+    {
+      "controle": "Nom du contrôle effectué",
+      "resultat": "CONFORME | ANOMALIE",
+      "details": "Explication détaillée avec les montants vérifiés et les calculs effectués",
+      "preuves": "Les valeurs exactes trouvées vs attendues"
+    }
+  ],
+  "recommandations": ["liste des actions prioritaires détaillées"]
 }
 
 Si AUCUNE ANOMALIE:
@@ -101,9 +113,53 @@ Si AUCUNE ANOMALIE:
   "status": "CONFORME",
   "niveau": "OK",
   "anomalies": [],
-  "resume_audit": "Les états financiers sont conformes aux normes SYSCOHADA et reflètent fidèlement l'activité...",
-  "points_verification": ["liste des contrôles effectués"],
-  "recommandations": []
+  "resume_audit": "Synthèse DÉTAILLÉE: mentionner les montants clés vérifiés (CA, TVA, créances, etc.)",
+  "details_verification": [
+    {
+      "controle": "1. Vérification du sens de l'opération",
+      "resultat": "CONFORME",
+      "details": "Exemple: EXIAS est identifié comme fournisseur dans la facture, confirmant une opération de VENTE. Le client Cabinet Koffi & Partners est correctement débité.",
+      "preuves": "Champ fournisseur = 'EXIAS', Journal utilisé = VE (Ventes)"
+    },
+    {
+      "controle": "2. Contrôle des calculs TVA",
+      "resultat": "CONFORME",
+      "details": "Exemple: Base HT de 1 909 000 FCFA × 18% = 343 620 FCFA. Le calcul est exact.",
+      "preuves": "TVA calculée: 1 909 000 × 0.18 = 343 620 ✓"
+    },
+    {
+      "controle": "3. Équilibre des écritures",
+      "resultat": "CONFORME", 
+      "details": "Exemple: Total Débit = 2 252 620 FCFA, Total Crédit = 2 252 620 FCFA. L'écriture est parfaitement équilibrée.",
+      "preuves": "Débit (4111) = 2 252 620, Crédit (7011+7012+4431) = 1 855 000 + 54 000 + 343 620 = 2 252 620 ✓"
+    },
+    {
+      "controle": "4. Classification des comptes",
+      "resultat": "CONFORME",
+      "details": "Exemple: Le compte 4111 (Clients) figure correctement à l'ACTIF circulant. Le compte 4431 (TVA collectée) figure correctement au PASSIF.",
+      "preuves": "4111 = ACTIF (créance), 4431 = PASSIF (dette), 7011/7012 = PRODUITS ✓"
+    },
+    {
+      "controle": "5. Cohérence facture/écritures",
+      "resultat": "CONFORME",
+      "details": "Exemple: Le montant TTC de la facture (2 252 620) correspond au débit du compte client (4111). Le détail des articles correspond aux lignes de ventes.",
+      "preuves": "Facture TTC: 2 252 620 = Compte 4111: 2 252 620 ✓"
+    },
+    {
+      "controle": "6. Équilibre du bilan",
+      "resultat": "CONFORME",
+      "details": "Exemple: Total ACTIF = 2 252 620 FCFA, Total PASSIF = 2 252 620 FCFA. Le bilan est parfaitement équilibré.",
+      "preuves": "Actif: Clients 2 252 620 | Passif: Résultat 1 909 000 + TVA 343 620 = 2 252 620 ✓"
+    }
+  ],
+  "synthese_chiffree": {
+    "chiffre_affaires_ht": "montant exact",
+    "tva_collectee": "montant exact",
+    "creances_clients": "montant exact",
+    "resultat_exercice": "montant exact",
+    "equilibre_bilan": "ACTIF = PASSIF = montant"
+  },
+  "recommandations": ["Recommandations spécifiques basées sur l'analyse"]
 }
 
 🚨 RÈGLES IMPÉRATIVES:

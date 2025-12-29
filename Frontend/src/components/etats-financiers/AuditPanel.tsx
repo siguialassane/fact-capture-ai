@@ -164,8 +164,8 @@ export function AuditPanel({ exercice }: AuditPanelProps) {
             {/* Résumé */}
             <div
               className={`p-4 rounded-lg border ${auditResult.status === "CONFORME"
-                  ? "bg-emerald-50 border-emerald-200"
-                  : "bg-red-50 border-red-200"
+                ? "bg-emerald-50 border-emerald-200"
+                : "bg-red-50 border-red-200"
                 }`}
             >
               <div className="flex items-start gap-3">
@@ -291,8 +291,61 @@ export function AuditPanel({ exercice }: AuditPanelProps) {
               </div>
             )}
 
-            {/* Points de vérification */}
-            {auditResult.points_verification && auditResult.points_verification.length > 0 && (
+            {/* Détails de vérification avec preuves */}
+            {(auditResult as any).details_verification && (auditResult as any).details_verification.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="font-semibold text-slate-700 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                  Détails des Contrôles Effectués
+                </h4>
+                <div className="space-y-2">
+                  {(auditResult as any).details_verification.map((item: any, i: number) => (
+                    <div key={i} className={`p-3 rounded-lg border ${item.resultat === "CONFORME"
+                        ? "bg-emerald-50/50 border-emerald-200"
+                        : "bg-red-50/50 border-red-200"
+                      }`}>
+                      <div className="flex items-start gap-2">
+                        {item.resultat === "CONFORME" ? (
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                        )}
+                        <div className="flex-1 space-y-1">
+                          <div className="font-medium text-sm text-slate-800">{item.controle}</div>
+                          <div className="text-sm text-slate-600">{item.details}</div>
+                          {item.preuves && (
+                            <div className="text-xs font-mono bg-white/70 p-2 rounded border border-slate-200 text-slate-700">
+                              📊 {item.preuves}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Synthèse chiffrée */}
+            {(auditResult as any).synthese_chiffree && (
+              <div className="space-y-2">
+                <h4 className="font-semibold text-slate-700 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-amber-500" />
+                  Synthèse Chiffrée
+                </h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries((auditResult as any).synthese_chiffree).map(([key, value]) => (
+                    <div key={key} className="p-2 bg-slate-50 rounded border">
+                      <div className="text-xs text-slate-500 uppercase">{key.replace(/_/g, ' ')}</div>
+                      <div className="text-sm font-semibold text-slate-800">{String(value)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Points de vérification (ancien format - rétro-compatibilité) */}
+            {auditResult.points_verification && auditResult.points_verification.length > 0 && !(auditResult as any).details_verification && (
               <div className="space-y-2">
                 <h4 className="font-semibold text-slate-700 flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
