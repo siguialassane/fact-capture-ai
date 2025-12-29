@@ -59,6 +59,11 @@ B. ÉQUILIBRE COMPTABLE:
 C. COHÉRENCE DES MONTANTS:
 - TVA = Base HT × Taux (vérifier les calculs)
 - TTC = HT + TVA
+- **RÈGLE CRUCIALE: Le compte Clients (4111) est TOUJOURS au MONTANT TTC !**
+  Le client doit payer la facture TTC (HT + TVA incluse).
+  Ce n'est PAS une erreur si 4111 = Montant TTC.
+- **Le compte Ventes (7xx) est au MONTANT HT.**
+- **Le compte TVA Collectée (4431) est au MONTANT de la TVA.**
 - Pas de montants négatifs incohérents
 
 D. ERREURS COURANTES À DÉTECTER:

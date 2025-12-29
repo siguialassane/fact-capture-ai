@@ -242,6 +242,14 @@ export async function getBilan(exercice: string): Promise<Bilan> {
     getSoldesByClasse(exercice, CLASSES.TRESORERIE_PASSIF),
   ]);
 
+  // =====================================================================
+  // IMPORTANT: Calculer le Résultat Net pour l'inclure dans les Capitaux Propres
+  // Le Bilan doit toujours être équilibré: ACTIF = PASSIF
+  // Le Résultat Net (Produits - Charges) est un composant des Capitaux Propres
+  // =====================================================================
+  const compteResultat = await getCompteResultat(exercice);
+  const resultatNet = compteResultat.resultat_net;
+
   // Construire l'actif immobilisé
   const actifImmobilise: SectionBilan = {
     lignes: immobilisations.map((c) => ({
@@ -268,14 +276,25 @@ export async function getBilan(exercice: string): Promise<Bilan> {
     .filter((c) => c.solde > 0)
     .reduce((sum, c) => sum + c.solde, 0);
 
-  // Capitaux propres
+  // Capitaux propres - INCLURE LE RÉSULTAT NET DE L'EXERCICE
+  const capitauxLignes = capitaux.map((c) => ({
+    compte: c.compte,
+    libelle: c.libelle,
+    montant: Math.abs(c.solde),
+  }));
+
+  // Ajouter le résultat net comme ligne des capitaux propres (compte 13)
+  if (resultatNet !== 0) {
+    capitauxLignes.push({
+      compte: "13",
+      libelle: "Résultat de l'exercice",
+      montant: resultatNet, // Peut être négatif si perte
+    });
+  }
+
   const capitauxPropres: SectionBilan = {
-    lignes: capitaux.map((c) => ({
-      compte: c.compte,
-      libelle: c.libelle,
-      montant: Math.abs(c.solde),
-    })),
-    total: capitaux.reduce((sum, c) => sum + Math.abs(c.solde), 0),
+    lignes: capitauxLignes,
+    total: capitaux.reduce((sum, c) => sum + Math.abs(c.solde), 0) + resultatNet,
   };
 
   // Dettes
