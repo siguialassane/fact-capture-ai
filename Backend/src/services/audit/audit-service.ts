@@ -83,13 +83,33 @@ async function callGeminiAudit(
   }
 
   try {
+    // Essayer d'abord le parsing direct
     const result = JSON.parse(content) as AuditResult;
     result.timestamp = new Date().toISOString();
     result.duree_ms = duration_ms;
     return { result, duration_ms };
   } catch (parseError) {
-    console.error("[Audit Gemini] Erreur parsing JSON:", parseError);
-    // Retourner un résultat par défaut si parsing échoue
+    // Si le parsing échoue, essayer d'extraire le JSON du texte
+    // Claude peut ajouter du texte explicatif avant/après le JSON
+    console.log("[Audit] Tentative d'extraction JSON du contenu...");
+
+    // Chercher un objet JSON dans le contenu (commence par { et finit par })
+    const jsonMatch = content.match(/\{[\s\S]*"status"\s*:\s*"(?:CONFORME|ANOMALIE)"[\s\S]*\}/);
+
+    if (jsonMatch) {
+      try {
+        const result = JSON.parse(jsonMatch[0]) as AuditResult;
+        result.timestamp = new Date().toISOString();
+        result.duree_ms = duration_ms;
+        console.log("[Audit] JSON extrait avec succès, status:", result.status);
+        return { result, duration_ms };
+      } catch (extractError) {
+        console.error("[Audit] Échec extraction JSON:", extractError);
+      }
+    }
+
+    console.error("[Audit] Erreur parsing JSON, contenu brut:", content.substring(0, 200));
+    // Retourner un résultat par défaut si tout échoue
     return {
       result: {
         status: "ANOMALIE",
