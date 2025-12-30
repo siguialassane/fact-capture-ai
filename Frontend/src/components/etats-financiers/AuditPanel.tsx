@@ -31,7 +31,7 @@ import {
   auditEtatsFinanciers,
   type AuditResult,
   type AuditAnomalie,
-} from "@/lib/audit-api";
+} from "@/lib/api/backend-client";
 
 interface AuditPanelProps {
   exercice: string;

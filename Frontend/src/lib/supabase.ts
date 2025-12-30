@@ -1,14 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
 import type { FlexibleInvoiceAIResult } from "./openrouter";
+import { config, isSupabaseConfigured } from "./config";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
+if (!isSupabaseConfigured()) {
   console.warn("Supabase credentials not configured. Using local storage only.");
 }
 
-export const supabase = createClient(supabaseUrl || "", supabaseAnonKey || "");
+export const supabase = createClient(
+  config.supabase.url || "",
+  config.supabase.anonKey || ""
+);
 
 // Types for the invoices table
 export interface InvoiceRecord {

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc:*)",
+      "Bash(cat:*)",
+      "mcp__supabase-qwen-image__list_projects",
+      "mcp__supabase-qwen-image__list_tables",
+      "mcp__supabase-qwen-image__execute_sql",
+      "Bash(npx tsc:*)",
+      "Bash(find:*)",
+      "Bash(npm run build)"
+    ]
+  }
+}

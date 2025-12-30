@@ -5,7 +5,7 @@
  * avec régénération complète par l'IA.
  */
 
-import { supabase } from "../../lib/supabase";
+import { getSupabase } from "../../lib/supabase";
 import type { JournalCode } from "./types";
 
 // Configuration OpenRouter
@@ -198,7 +198,7 @@ export async function regenerateEntryForJournal(
         console.log(`[Regenerate] Régénération écriture ${entry_id} vers ${target_journal}...`);
 
         // 1. Récupérer l'écriture existante
-        const { data: existingEntry, error: fetchError } = await supabase
+        const { data: existingEntry, error: fetchError } = await getSupabase()
             .from("journal_entries")
             .select("*")
             .eq("id", entry_id)
@@ -212,7 +212,7 @@ export async function regenerateEntryForJournal(
         }
 
         // 2. Récupérer les lignes
-        const { data: existingLines, error: linesError } = await supabase
+        const { data: existingLines, error: linesError } = await getSupabase()
             .from("journal_entry_lines")
             .select("*")
             .eq("entry_id", entry_id)
@@ -381,7 +381,7 @@ export async function saveRegeneratedEntry(
         const exerciceCode = `${new Date().getFullYear()}`;
 
         // 3. Insérer la nouvelle écriture
-        const { data: entry, error: entryError } = await supabase
+        const { data: entry, error: entryError } = await getSupabase()
             .from("journal_entries")
             .insert({
                 numero_piece: newEntry.numero_piece,
@@ -423,14 +423,14 @@ export async function saveRegeneratedEntry(
             ligne_ordre: index + 1,
         }));
 
-        const { error: lignesError } = await supabase
+        const { error: lignesError } = await getSupabase()
             .from("journal_entry_lines")
             .insert(lignesData);
 
         if (lignesError) {
             console.error("[Regenerate] Erreur insertion lignes:", lignesError);
             // Rollback: supprimer l'écriture si les lignes échouent
-            await supabase.from("journal_entries").delete().eq("id", entry.id);
+            await getSupabase().from("journal_entries").delete().eq("id", entry.id);
             return {
                 success: false,
                 error: `Erreur insertion lignes: ${lignesError.message}`,
@@ -438,7 +438,7 @@ export async function saveRegeneratedEntry(
         }
 
         // 5. Supprimer les anciennes lignes
-        const { error: deleteOldLinesError } = await supabase
+        const { error: deleteOldLinesError } = await getSupabase()
             .from("journal_entry_lines")
             .delete()
             .eq("entry_id", oldEntryId);
@@ -448,7 +448,7 @@ export async function saveRegeneratedEntry(
         }
 
         // 6. Supprimer l'ancienne écriture
-        const { error: deleteOldError } = await supabase
+        const { error: deleteOldError } = await getSupabase()
             .from("journal_entries")
             .delete()
             .eq("id", oldEntryId);
@@ -459,7 +459,7 @@ export async function saveRegeneratedEntry(
         }
 
         // 7. Logger l'audit
-        await supabase.from("control_audit_log").insert({
+        await getSupabase().from("control_audit_log").insert({
             control_type: "entry_regenerated",
             entity_type: "journal_entry",
             entity_id: entry.id,

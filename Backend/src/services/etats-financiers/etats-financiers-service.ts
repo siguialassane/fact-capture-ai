@@ -7,7 +7,7 @@
  * - Calcul des indicateurs financiers
  */
 
-import { supabase } from "../../lib/supabase";
+import { getSupabase } from "../../lib/supabase";
 
 // Types
 export interface LigneBilan {
@@ -94,7 +94,7 @@ async function getSoldesByClasse(
   const dateDebut = `${exercice}-01-01`;
   const dateFin = `${exercice}-12-31`;
 
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("journal_entry_lines")
     .select(`
       compte_numero,

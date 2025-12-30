@@ -14,7 +14,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import type { StatutPaiement } from "@/lib/accounting-api";
+import type { StatutPaiement } from "@/lib/api/backend-client";
 
 interface PaymentStatusSelectorProps {
     suggestedStatus: string;

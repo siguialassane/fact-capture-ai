@@ -40,7 +40,7 @@ import {
   getGrandLivreCompte,
   type GrandLivreAccount,
   type GrandLivreDetail,
-} from "@/lib/grand-livre-api";
+} from "@/lib/api/backend-client";
 
 // Couleurs par classe de compte
 const CLASSE_COLORS: Record<string, { bg: string; text: string }> = {

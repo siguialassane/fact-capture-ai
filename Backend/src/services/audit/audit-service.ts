@@ -6,7 +6,7 @@
  */
 
 import { config } from "../../config/env";
-import { supabase } from "../../lib/supabase";
+import { getSupabase } from "../../lib/supabase";
 import {
   AUDIT_SYSTEM_PROMPT,
   buildAuditEtatsFinanciersPrompt,
@@ -133,7 +133,7 @@ async function getAuditData(exercice: string) {
   const dateDebut = `${exercice}-01-01`;
   const dateFin = `${exercice}-12-31`;
 
-  const { data: ecritures, error: errEcritures } = await supabase
+  const { data: ecritures, error: errEcritures } = await getSupabase()
     .from("journal_entries")
     .select(`
       id,
@@ -161,7 +161,7 @@ async function getAuditData(exercice: string) {
   }
 
   // Récupérer la dernière facture analysée
-  const { data: factures, error: errFactures } = await supabase
+  const { data: factures, error: errFactures } = await getSupabase()
     .from("invoices")
     .select("ai_result, created_at")
     .order("created_at", { ascending: false })
@@ -172,7 +172,7 @@ async function getAuditData(exercice: string) {
   }
 
   // Calculer les soldes par compte
-  const { data: soldes, error: errSoldes } = await supabase
+  const { data: soldes, error: errSoldes } = await getSupabase()
     .from("journal_entry_lines")
     .select(`
       compte_numero,

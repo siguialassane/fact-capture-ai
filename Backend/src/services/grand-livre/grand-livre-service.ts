@@ -7,7 +7,7 @@
  * - Balance des comptes
  */
 
-import { supabase } from "../../lib/supabase";
+import { getSupabase } from "../../lib/supabase";
 import {
   type GrandLivreEntry,
   type GrandLivreAccount,
@@ -31,7 +31,7 @@ export async function getGrandLivreCompte(
     inclureLettres?: boolean;
   }
 ): Promise<GrandLivreDetail | null> {
-  let query = supabase
+  let query = getSupabase()
     .from("vue_grand_livre")
     .select("*")
     .eq("numero_compte", numeroCompte);
@@ -106,7 +106,7 @@ export async function getGrandLivreCompte(
 export async function searchGrandLivre(
   filter: GrandLivreFilter
 ): Promise<GrandLivreEntry[]> {
-  let query = supabase.from("vue_grand_livre").select("*");
+  let query = getSupabase().from("vue_grand_livre").select("*");
 
   if (filter.compte_debut) {
     query = query.gte("numero_compte", filter.compte_debut);
@@ -166,7 +166,7 @@ export async function getComptesWithSoldes(
     avecMouvements?: boolean;
   }
 ): Promise<GrandLivreAccount[]> {
-  const { data, error } = await supabase.from("vue_balance").select("*");
+  const { data, error } = await getSupabase().from("vue_balance").select("*");
 
   if (error) {
     console.error("[GrandLivre] Erreur comptes:", error);
@@ -214,7 +214,7 @@ export async function getBalance(
     classeFin?: string;
   }
 ): Promise<Balance> {
-  const { data, error } = await supabase.from("vue_balance").select("*");
+  const { data, error } = await getSupabase().from("vue_balance").select("*");
 
   if (error) {
     console.error("[GrandLivre] Erreur balance:", error);
@@ -275,7 +275,7 @@ export async function getSoldeCompteAtDate(
   numeroCompte: string,
   date: string
 ): Promise<{ debit: number; credit: number; solde: number }> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("vue_grand_livre")
     .select("debit, credit")
     .eq("numero_compte", numeroCompte)
@@ -308,7 +308,7 @@ export async function searchComptes(
   query: string,
   limit: number = 20
 ): Promise<Array<{ numero_compte: string; libelle: string }>> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("plan_comptable")
     .select("numero_compte, libelle")
     .or(`numero_compte.ilike.%${query}%,libelle.ilike.%${query}%`)

@@ -33,7 +33,7 @@ import {
     AreaChart,
     Area
 } from "recharts";
-import { getBilan, getCompteResultat, getIndicateursFinanciers, type Bilan, type CompteResultat, type Indicateurs } from "@/lib/etats-financiers-api";
+import { getBilan, getCompteResultat, getIndicateursFinanciers, type Bilan, type CompteResultat, type Indicateurs } from "@/lib/api/backend-client";
 
 // --- Components ---
 

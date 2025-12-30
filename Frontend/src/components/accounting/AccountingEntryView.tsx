@@ -36,7 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import type { JournalEntry, AccountingStatus, StatutPaiement } from "@/lib/accounting-api";
+import type { JournalEntry, AccountingStatus, StatutPaiement } from "@/lib/api/backend-client";
 import type { FlexibleInvoiceAIResult } from "@/lib/openrouter";
 
 interface AccountingEntryViewProps {

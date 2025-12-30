@@ -53,11 +53,11 @@ import {
     regenerateEntryWithAI,
     saveRegeneratedEntry,
     type JournalCode,
-    type JournalEntry,
+    type JournalEntryRecord as JournalEntry,
     type RegenerateAdditionalInfo,
     type RegeneratedEntry,
     type RegenerateResult,
-} from "@/lib/journals-api";
+} from "@/lib/api/backend-client";
 
 interface RegenerateEntryModalProps {
     open: boolean;

@@ -24,15 +24,13 @@ export function getSupabase(): SupabaseClient {
 }
 
 /**
- * Export the supabase client directly for convenience
- */
-export const supabase = isSupabaseConfigured() 
-  ? createClient(config.supabaseUrl, config.supabaseAnonKey)
-  : null as unknown as SupabaseClient;
-
-/**
  * Check if Supabase is available
  */
 export function isSupabaseAvailable(): boolean {
-  return isSupabaseConfigured() && supabase !== null;
+  return isSupabaseConfigured();
 }
+
+/**
+ * Re-export isSupabaseConfigured for convenience
+ */
+export { isSupabaseConfigured };

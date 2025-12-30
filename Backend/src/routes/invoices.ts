@@ -1,21 +1,11 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { createClient } from "@supabase/supabase-js";
-import { config, isSupabaseConfigured } from "../config/env.js";
+import { isSupabaseAvailable } from "../lib/supabase.js";
 import { Errors } from "../middleware/error-handler.js";
+import { InvoiceRepository } from "../repositories/index.js";
 
 export const invoiceRoutes = new Hono();
-
-// Supabase client (lazy initialization)
-let supabase: ReturnType<typeof createClient> | null = null;
-
-function getSupabase() {
-  if (!supabase && isSupabaseConfigured()) {
-    supabase = createClient(config.supabaseUrl, config.supabaseAnonKey);
-  }
-  return supabase;
-}
 
 // Schemas
 const CreateInvoiceSchema = z.object({
@@ -32,34 +22,24 @@ const UpdateInvoiceSchema = z.object({
  * List all invoices
  */
 invoiceRoutes.get("/", async (c) => {
-  const db = getSupabase();
-  if (!db) {
+  if (!isSupabaseAvailable()) {
     throw Errors.configurationError("Supabase is not configured");
   }
 
   const limit = parseInt(c.req.query("limit") || "50", 10);
   const offset = parseInt(c.req.query("offset") || "0", 10);
 
-  const { data, error, count } = await db
-    .from("invoices")
-    .select("id, created_at, ai_result, session_id", { count: "exact" })
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  if (error) {
+  try {
+    const result = await InvoiceRepository.findAll({ limit, offset });
+    return c.json({
+      success: true,
+      data: result.data,
+      meta: result.meta,
+    });
+  } catch (error) {
     console.error("[Invoices] List error:", error);
     throw Errors.internal("Failed to fetch invoices");
   }
-
-  return c.json({
-    success: true,
-    data: data || [],
-    meta: {
-      total: count || 0,
-      limit,
-      offset,
-    },
-  });
 });
 
 /**
@@ -67,27 +47,20 @@ invoiceRoutes.get("/", async (c) => {
  * Get the latest invoice
  */
 invoiceRoutes.get("/latest", async (c) => {
-  const db = getSupabase();
-  if (!db) {
+  if (!isSupabaseAvailable()) {
     throw Errors.configurationError("Supabase is not configured");
   }
 
-  const { data, error } = await db
-    .from("invoices")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
-
-  if (error && error.code !== "PGRST116") {
+  try {
+    const data = await InvoiceRepository.findLatest();
+    return c.json({
+      success: true,
+      data,
+    });
+  } catch (error) {
     console.error("[Invoices] Latest error:", error);
     throw Errors.internal("Failed to fetch latest invoice");
   }
-
-  return c.json({
-    success: true,
-    data: data || null,
-  });
 });
 
 /**
@@ -95,31 +68,28 @@ invoiceRoutes.get("/latest", async (c) => {
  * Get a specific invoice
  */
 invoiceRoutes.get("/:id", async (c) => {
-  const db = getSupabase();
-  if (!db) {
+  if (!isSupabaseAvailable()) {
     throw Errors.configurationError("Supabase is not configured");
   }
 
   const id = c.req.param("id");
 
-  const { data, error } = await db
-    .from("invoices")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  if (error) {
-    if (error.code === "PGRST116") {
+  try {
+    const data = await InvoiceRepository.findById(id);
+    if (!data) {
       throw Errors.notFound("Invoice");
+    }
+    return c.json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    if ((error as any)?.statusCode === 404) {
+      throw error;
     }
     console.error("[Invoices] Get error:", error);
     throw Errors.internal("Failed to fetch invoice");
   }
-
-  return c.json({
-    success: true,
-    data,
-  });
 });
 
 /**
@@ -130,39 +100,29 @@ invoiceRoutes.post(
   "/",
   zValidator("json", CreateInvoiceSchema),
   async (c) => {
-    const db = getSupabase();
-    if (!db) {
+    if (!isSupabaseAvailable()) {
       throw Errors.configurationError("Supabase is not configured");
     }
 
     const { imageBase64, aiResult } = c.req.valid("json");
 
-    // @ts-expect-error - Supabase types not generated
-    const { data, error } = await db
-      .from("invoices")
-      .insert([
-        {
-          image_base64: imageBase64,
-          image_path: '',
-          image_url: '',
-          ai_result: aiResult || null,
-        },
-      ])
-      .select()
-      .single();
+    try {
+      const data = await InvoiceRepository.create({
+        imageBase64,
+        aiResult: aiResult || null,
+      });
 
-    if (error) {
+      return c.json(
+        {
+          success: true,
+          data,
+        },
+        201
+      );
+    } catch (error) {
       console.error("[Invoices] Create error:", error);
       throw Errors.internal("Failed to create invoice");
     }
-
-    return c.json(
-      {
-        success: true,
-        data,
-      },
-      201
-    );
   }
 );
 
@@ -174,34 +134,26 @@ invoiceRoutes.patch(
   "/:id",
   zValidator("json", UpdateInvoiceSchema),
   async (c) => {
-    const db = getSupabase();
-    if (!db) {
+    if (!isSupabaseAvailable()) {
       throw Errors.configurationError("Supabase is not configured");
     }
 
     const id = c.req.param("id");
     const { aiResult } = c.req.valid("json");
 
-    // @ts-expect-error - Supabase types not generated
-    const { data, error } = await db
-      .from("invoices")
-      .update({ ai_result: aiResult } as any)
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) {
-      if (error.code === "PGRST116") {
+    try {
+      const data = await InvoiceRepository.update(id, { aiResult });
+      return c.json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      if ((error as Error).message === "Invoice not found") {
         throw Errors.notFound("Invoice");
       }
       console.error("[Invoices] Update error:", error);
       throw Errors.internal("Failed to update invoice");
     }
-
-    return c.json({
-      success: true,
-      data,
-    });
   }
 );
 
@@ -210,22 +162,20 @@ invoiceRoutes.patch(
  * Delete an invoice
  */
 invoiceRoutes.delete("/:id", async (c) => {
-  const db = getSupabase();
-  if (!db) {
+  if (!isSupabaseAvailable()) {
     throw Errors.configurationError("Supabase is not configured");
   }
 
   const id = c.req.param("id");
 
-  const { error } = await db.from("invoices").delete().eq("id", id);
-
-  if (error) {
+  try {
+    await InvoiceRepository.delete(id);
+    return c.json({
+      success: true,
+      message: "Invoice deleted",
+    });
+  } catch (error) {
     console.error("[Invoices] Delete error:", error);
     throw Errors.internal("Failed to delete invoice");
   }
-
-  return c.json({
-    success: true,
-    message: "Invoice deleted",
-  });
 });

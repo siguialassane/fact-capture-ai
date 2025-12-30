@@ -19,8 +19,8 @@ import {
   chatAboutEntry,
   type JournalEntry,
   type AccountingStatus,
-  type StatutPaiement, // Restauré
-} from "@/lib/accounting-api";
+  type StatutPaiement,
+} from "@/lib/api/backend-client";
 import {
   useInvoiceAnalysis,
   useInvoiceChat,

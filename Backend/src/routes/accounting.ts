@@ -8,7 +8,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { generateAccountingEntry, refineAccountingEntry, type AccountingResult } from "../services/accounting";
-import { supabase } from "../lib/supabase";
+import { getSupabase } from "../lib/supabase";
 
 const accounting = new Hono();
 
@@ -187,7 +187,7 @@ accounting.post(
 accounting.get("/plan-comptable", async (c) => {
   try {
     // Récupérer le plan comptable depuis la base de données
-    const { data: comptes, error } = await supabase
+    const { data: comptes, error } = await getSupabase()
       .from("plan_comptable")
       .select("numero_compte, libelle, classe, type_compte, sens_normal")
       .eq("est_utilisable", true)
@@ -260,7 +260,7 @@ accounting.post(
       // Rechercher le tiers par code ou raison sociale
       let tiersId = null;
       if (ecriture.tiers_code || ecriture.tiers_nom) {
-        const { data: tiers } = await supabase
+        const { data: tiers } = await getSupabase()
           .from("tiers")
           .select("id")
           .or(`code.eq.${ecriture.tiers_code},raison_sociale.ilike.%${ecriture.tiers_nom}%`)
@@ -274,7 +274,7 @@ accounting.post(
       const exerciceCode = datePiece.getFullYear().toString();
 
       // Insérer l'écriture principale
-      const { data: entry, error: entryError } = await supabase
+      const { data: entry, error: entryError } = await getSupabase()
         .from("journal_entries")
         .insert({
           numero_piece: ecriture.numero_piece,
@@ -318,19 +318,19 @@ accounting.post(
         ligne_ordre: index + 1,
       }));
 
-      const { error: lignesError } = await supabase
+      const { error: lignesError } = await getSupabase()
         .from("journal_entry_lines")
         .insert(lignesData);
 
       if (lignesError) {
         console.error("[Accounting API] Erreur insertion lignes:", lignesError);
         // Rollback: supprimer l'écriture si les lignes échouent
-        await supabase.from("journal_entries").delete().eq("id", entry.id);
+        await getSupabase().from("journal_entries").delete().eq("id", entry.id);
         throw lignesError;
       }
 
       // Logger l'audit
-      await supabase.from("control_audit_log").insert({
+      await getSupabase().from("control_audit_log").insert({
         control_type: "entry_saved",
         entity_type: "journal_entry",
         entity_id: entry.id,
@@ -373,7 +373,7 @@ accounting.post(
  */
 accounting.get("/entries", async (c) => {
   try {
-    const { data: entries, error } = await supabase
+    const { data: entries, error } = await getSupabase()
       .from("journal_entries")
       .select(`
         *,
@@ -406,7 +406,7 @@ accounting.get("/entries", async (c) => {
  */
 accounting.get("/duplicates", async (c) => {
   try {
-    const { data: duplicates, error } = await supabase
+    const { data: duplicates, error } = await getSupabase()
       .from("invoice_duplicates")
       .select(`
         *,
@@ -442,7 +442,7 @@ accounting.get("/tiers", async (c) => {
   try {
     const type = c.req.query("type"); // 'fournisseur' ou 'client'
 
-    let query = supabase
+    let query = getSupabase()
       .from("tiers")
       .select("id, code, nom, type_tiers, numero_compte_defaut, adresse, ville, pays")
       .eq("actif", true)
@@ -620,7 +620,7 @@ ${entryContext}`,
  */
 async function getAccountingContext() {
   // Plan comptable
-  const { data: comptes } = await supabase
+  const { data: comptes } = await getSupabase()
     .from("plan_comptable")
     .select("numero_compte, libelle, classe, type_compte, sens_normal")
     .eq("est_utilisable", true)
@@ -628,35 +628,42 @@ async function getAccountingContext() {
     .order("numero_compte");
 
   // Tiers (fournisseurs et clients)
-  const { data: tiers } = await supabase
+  const { data: tiers } = await getSupabase()
     .from("tiers")
     .select("code, nom, type_tiers, numero_compte_defaut")
     .eq("actif", true)
     .order("nom");
 
   // Taux de TVA
-  const { data: taxRates } = await supabase
+  const { data: taxRates } = await getSupabase()
     .from("tax_rates")
     .select("code, taux, libelle")
     .eq("actif", true);
 
-  // Journaux
-  const { data: journals } = await supabase
-    .from("journals")
-    .select("code, libelle, type_journal")
+  // Journaux (utilise la table journaux unifiée)
+  const { data: journauxData } = await getSupabase()
+    .from("journaux")
+    .select("code, libelle, type_operation")
     .eq("actif", true);
 
   // Infos entreprise
-  const { data: company } = await supabase
+  const { data: company } = await getSupabase()
     .from("company_info")
     .select("*")
     .single();
+
+  // Mapper type_operation vers type_journal pour compatibilité avec AccountingContext
+  const journaux = (journauxData || []).map((j: { code: string; libelle: string; type_operation: string }) => ({
+    code: j.code,
+    libelle: j.libelle,
+    type_journal: j.type_operation, // Alias pour compatibilité
+  }));
 
   return {
     plan_comptable: comptes || [],
     tiers: tiers || [],
     taux_tva: taxRates || [],
-    journaux: journals || [],
+    journaux,
     entreprise: company || null,
   };
 }

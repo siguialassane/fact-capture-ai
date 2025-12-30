@@ -49,7 +49,7 @@ import {
   type Bilan,
   type CompteResultat,
   type Indicateurs,
-} from "@/lib/etats-financiers-api";
+} from "@/lib/api/backend-client";
 import { AuditPanel } from "./AuditPanel";
 
 export function EtatsFinanciersView() {

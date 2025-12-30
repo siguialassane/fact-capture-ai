@@ -54,8 +54,8 @@ import {
   type JournalCode,
   type JournalConfig,
   type JournalSummary,
-  type JournalEntry,
-} from "@/lib/journals-api";
+  type JournalEntryRecord as JournalEntry,
+} from "@/lib/api/backend-client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { RegenerateEntryModal } from "./RegenerateEntryModal";

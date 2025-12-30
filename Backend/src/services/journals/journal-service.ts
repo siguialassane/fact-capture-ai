@@ -7,7 +7,7 @@
  * - Résumés et statistiques par journal
  */
 
-import { supabase } from "../../lib/supabase";
+import { getSupabase } from "../../lib/supabase";
 import {
   type JournalCode,
   type JournalConfig,
@@ -24,7 +24,7 @@ export * from "./types";
  * Récupère tous les journaux actifs
  */
 export async function getJournaux(): Promise<JournalConfig[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("journaux")
     .select("*")
     .eq("actif", true)
@@ -53,7 +53,7 @@ export async function getNextPieceNumber(
   journalCode: JournalCode,
   datePiece: Date = new Date()
 ): Promise<string> {
-  const { data, error } = await supabase.rpc("get_next_piece_number", {
+  const { data, error } = await getSupabase().rpc("get_next_piece_number", {
     p_journal_code: journalCode,
     p_date_piece: datePiece.toISOString().split("T")[0],
   });
@@ -155,7 +155,7 @@ export async function getJournalSummary(
 
   if (periode) {
     // Résumé par période spécifique
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from("vue_journal_summary")
       .select("*")
       .eq("periode", periode)
@@ -178,7 +178,7 @@ export async function getJournalSummary(
     }));
   } else {
     // Résumé global (toutes périodes confondues)
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from("v_journal_summaries")
       .select("*");
 
@@ -214,7 +214,7 @@ export async function getJournalEntries(
   }
 ): Promise<any[]> {
   // Utiliser la vue SQL qui fait le mapping automatique
-  let query = supabase
+  let query = getSupabase()
     .from("v_journal_entries_with_lines")
     .select("*")
     .eq("journal_code", journalCode);
@@ -250,7 +250,7 @@ export async function getJournalEntries(
 export async function getSequences(
   exercice?: string
 ): Promise<JournalSequence[]> {
-  let query = supabase.from("journal_sequences").select("*");
+  let query = getSupabase().from("journal_sequences").select("*");
 
   if (exercice) {
     query = query.eq("exercice", exercice);
@@ -360,7 +360,7 @@ export async function correctEntryJournal(
 }> {
   try {
     // 1. Récupérer l'écriture existante avec ses lignes
-    const { data: existingEntry, error: fetchError } = await supabase
+    const { data: existingEntry, error: fetchError } = await getSupabase()
       .from("journal_entries")
       .select(`
         *,
@@ -423,7 +423,7 @@ export async function correctEntryJournal(
         const newCompte = newContrepartie.compte;
 
         // Mettre à jour la ligne
-        const { error: updateLineError } = await supabase
+        const { error: updateLineError } = await getSupabase()
           .from("journal_entry_lines")
           .update({
             numero_compte: newCompte,
@@ -445,7 +445,7 @@ export async function correctEntryJournal(
     }
 
     // 4. Mettre à jour l'écriture principale
-    const { data: updatedEntry, error: updateError } = await supabase
+    const { data: updatedEntry, error: updateError } = await getSupabase()
       .from("journal_entries")
       .update({
         journal_code: newJournalCode,

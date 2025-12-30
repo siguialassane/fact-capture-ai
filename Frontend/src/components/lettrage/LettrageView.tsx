@@ -47,7 +47,7 @@ import {
   type LigneLettrable,
   type PropositionLettrage,
   type LettrageStats,
-} from "@/lib/lettrage-api";
+} from "@/lib/api/backend-client";
 import { useToast } from "@/hooks/use-toast";
 
 export function LettrageView() {

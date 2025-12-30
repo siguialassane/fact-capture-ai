@@ -7,7 +7,7 @@
  * - Historique des opérations
  */
 
-import { supabase } from "../../lib/supabase";
+import { getSupabase } from "../../lib/supabase";
 import {
   type LettreCode,
   type LigneLettrable,
@@ -28,7 +28,7 @@ export * from "./types";
 export async function getLignesALettrer(
   filter?: LettreFilter
 ): Promise<LigneLettrable[]> {
-  let query = supabase.from("vue_lignes_a_lettrer").select("*");
+  let query = getSupabase().from("vue_lignes_a_lettrer").select("*");
 
   if (filter?.compte_debut) {
     query = query.gte("numero_compte", filter.compte_debut);
@@ -93,7 +93,7 @@ export async function effectuerLettrage(
   user?: string
 ): Promise<LettrageResult> {
   // Appeler la fonction SQL
-  const { data, error } = await supabase.rpc("effectuer_lettrage", {
+  const { data, error } = await getSupabase().rpc("effectuer_lettrage", {
     p_ligne_ids: ligneIds,
     p_compte: compte,
     p_tiers_code: tiersCode || null,
@@ -133,7 +133,7 @@ export async function annulerLettrage(
   compte: string,
   user?: string
 ): Promise<boolean> {
-  const { data, error } = await supabase.rpc("effectuer_delettrage", {
+  const { data, error } = await getSupabase().rpc("effectuer_delettrage", {
     p_lettre: lettre,
     p_compte: compte,
     p_user: user || null,
@@ -153,7 +153,7 @@ export async function annulerLettrage(
 export async function getGroupesLettrage(
   compte?: string
 ): Promise<GroupeLettrage[]> {
-  let query = supabase
+  let query = getSupabase()
     .from("vue_lignes_a_lettrer")
     .select("*")
     .not("lettre", "is", null);
@@ -332,7 +332,7 @@ export async function getHistoriqueLettrage(
   compte?: string,
   limit: number = 50
 ): Promise<LettrageHistory[]> {
-  let query = supabase.from("lettrage_history").select("*");
+  let query = getSupabase().from("lettrage_history").select("*");
 
   if (compte) {
     query = query.eq("compte", compte);
