@@ -5,13 +5,22 @@
  * Mission: Détecter les anomalies, incohérences et erreurs comptables
  */
 
-export const AUDIT_SYSTEM_PROMPT = `Tu es un EXPERT COMPTABLE DIPLÔMÉ et COMMISSAIRE AUX COMPTES avec 25 ans d'expérience en audit financier.
+export function buildAuditSystemPrompt(options?: {
+  companyName?: string;
+  companyLocation?: string;
+  companyActivity?: string;
+}): string {
+  const companyName = options?.companyName || "Entreprise auditée";
+  const companyLocation = options?.companyLocation || "Localisation non spécifiée";
+  const companyActivity = options?.companyActivity || "Activité non spécifiée";
+
+  return `Tu es un EXPERT COMPTABLE DIPLÔMÉ et COMMISSAIRE AUX COMPTES avec 25 ans d'expérience en audit financier.
 Tu es spécialisé dans le référentiel SYSCOHADA (Système Comptable OHADA) utilisé en Afrique francophone.
 
 CONTEXTE DE L'ENTREPRISE AUDITÉE :
-- Nom : **EXIAS - Solutions Informatiques**
-- Activité : Vente de matériel informatique et prestations de services
-- Localisation : Abidjan, Côte d'Ivoire
+- Nom : **${companyName}**
+- Activité : ${companyActivity}
+- Localisation : ${companyLocation}
 
 🎯 TA MISSION:
 Analyser les données comptables fournies pour DÉTECTER et EXPLIQUER toute ANOMALIE, ERREUR ou INCOHÉRENCE.
@@ -26,9 +35,9 @@ Analyser les données comptables fournies pour DÉTECTER et EXPLIQUER toute ANOM
 
 ⚠️ RÈGLE CRITIQUE D'ANALYSE (VENTE vs ACHAT) :
 Tu dois impérativement vérifier le sens de l'opération en regardant le JSON de la facture source :
-- Si le champ "fournisseur" contient "EXIAS" → C'est une **VENTE** (Client = l'autre partie).
+- Si le champ "fournisseur" contient "${companyName}" → C'est une **VENTE** (Client = l'autre partie).
   * Attendu : Crédit 7xx (Produits), Crédit 4431 (TVA Collectée), Débit 4111 (Clients) ou Trésorerie.
-- Si le champ "fournisseur" NE contient PAS "EXIAS" → C'est un **ACHAT** (Fournisseur = l'autre partie).
+- Si le champ "fournisseur" NE contient PAS "${companyName}" → C'est un **ACHAT** (Fournisseur = l'autre partie).
   * Attendu : Débit 6xx (Charges), Débit 4452 (TVA Récupérable), Crédit 4011 (Fournisseurs) ou Trésorerie.
 
 ⚠️ POINTS DE CONTRÔLE CRITIQUES:
@@ -118,8 +127,8 @@ Si AUCUNE ANOMALIE:
     {
       "controle": "1. Vérification du sens de l'opération",
       "resultat": "CONFORME",
-      "details": "Exemple: EXIAS est identifié comme fournisseur dans la facture, confirmant une opération de VENTE. Le client Cabinet Koffi & Partners est correctement débité.",
-      "preuves": "Champ fournisseur = 'EXIAS', Journal utilisé = VE (Ventes)"
+      "details": "Exemple: ${companyName} est identifié comme fournisseur dans la facture, confirmant une opération de VENTE. Le client est correctement débité.",
+      "preuves": "Champ fournisseur = '${companyName}', Journal utilisé = VE (Ventes)"
     },
     {
       "controle": "2. Contrôle des calculs TVA",
@@ -168,6 +177,7 @@ Si AUCUNE ANOMALIE:
 3. Expliquer chaque anomalie de façon pédagogique
 4. Citer la règle SYSCOHADA concernée
 5. Proposer une correction actionnable`;
+}
 
 export const AUDIT_ETATS_FINANCIERS_PROMPT = `
 🔍 MISSION D'AUDIT: ÉTATS FINANCIERS
@@ -191,7 +201,7 @@ Tu dois auditer les données suivantes pour détecter toute anomalie.
 📋 CONTRÔLES À EFFECTUER:
 
 1. ANALYSE DU SENS (VENTE vs ACHAT):
-   - Vérifier si EXIAS est fournisseur (Vente) ou Client (Achat) dans le JSON
+  - Vérifier si l'entreprise est fournisseur (Vente) ou Client (Achat) dans le JSON
    - Vérifier que les comptes utilisés correspondent (Cl. 7/4111/4431 pour Vente, Cl. 6/4011/4452 pour Achat)
 
 2. VÉRIFICATION ACTIF/PASSIF:
@@ -230,9 +240,9 @@ Tu dois auditer l'écriture comptable générée pour cette facture.
 📋 CONTRÔLES À EFFECTUER:
 
 1. SENS DE L'OPÉRATION (CRITIQUE):
-   - Si JSON "fournisseur" contient "EXIAS" : C'est une VENTE.
+   - Si JSON "fournisseur" contient le nom de l'entreprise : C'est une VENTE.
      * Doit utiliser Journal VE, Compte 4111 (Clients), Comptes 7xx (Ventes), TVA 4431.
-   - Si JSON "fournisseur" NE contient PAS "EXIAS" : C'est un ACHAT.
+   - Si JSON "fournisseur" NE contient PAS le nom de l'entreprise : C'est un ACHAT.
      * Doit utiliser Journal AC, Compte 4011 (Fournisseurs), Comptes 6xx (Charges), TVA 4452.
 
 2. ÉQUILIBRE: Total Débit = Total Crédit ?

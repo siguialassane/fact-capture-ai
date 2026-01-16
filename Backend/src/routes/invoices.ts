@@ -29,6 +29,8 @@ invoiceRoutes.get("/", async (c) => {
   const limit = parseInt(c.req.query("limit") || "50", 10);
   const offset = parseInt(c.req.query("offset") || "0", 10);
 
+  console.log(`[Invoices] List (limit=${limit}, offset=${offset})`);
+
   try {
     const result = await InvoiceRepository.findAll({ limit, offset });
     return c.json({
@@ -43,6 +45,33 @@ invoiceRoutes.get("/", async (c) => {
 });
 
 /**
+ * GET /api/invoices/with-entries
+ * List all invoices with linked accounting entries
+ */
+invoiceRoutes.get("/with-entries", async (c) => {
+  if (!isSupabaseAvailable()) {
+    throw Errors.configurationError("Supabase is not configured");
+  }
+
+  const limit = parseInt(c.req.query("limit") || "50", 10);
+  const offset = parseInt(c.req.query("offset") || "0", 10);
+
+  console.log(`[Invoices] List with entries (limit=${limit}, offset=${offset})`);
+
+  try {
+    const result = await InvoiceRepository.findAllWithEntries({ limit, offset });
+    return c.json({
+      success: true,
+      data: result.data,
+      meta: result.meta,
+    });
+  } catch (error) {
+    console.error("[Invoices] List with entries error:", error);
+    throw Errors.internal("Failed to fetch invoices with entries");
+  }
+});
+
+/**
  * GET /api/invoices/latest
  * Get the latest invoice
  */
@@ -52,6 +81,7 @@ invoiceRoutes.get("/latest", async (c) => {
   }
 
   try {
+    console.log("[Invoices] Fetch latest invoice");
     const data = await InvoiceRepository.findLatest();
     return c.json({
       success: true,
@@ -75,6 +105,7 @@ invoiceRoutes.get("/:id", async (c) => {
   const id = c.req.param("id");
 
   try {
+    console.log(`[Invoices] Fetch invoice ${id}`);
     const data = await InvoiceRepository.findById(id);
     if (!data) {
       throw Errors.notFound("Invoice");

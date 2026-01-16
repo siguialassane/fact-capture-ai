@@ -103,6 +103,8 @@ export function normalizeInvoiceData(data: Partial<InvoiceAIResult>): InvoiceAIR
     adresse_fournisseur: data.adresse_fournisseur,
     telephone_fournisseur: data.telephone_fournisseur,
     email_fournisseur: data.email_fournisseur,
+    rccm_fournisseur: (data as any).rccm_fournisseur,
+    ncc_fournisseur: (data as any).ncc_fournisseur,
     siret_fournisseur: data.siret_fournisseur,
     tva_intracom: data.tva_intracom,
     

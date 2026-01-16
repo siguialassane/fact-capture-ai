@@ -45,6 +45,43 @@ export async function analyzeInvoiceImage(imageBase64: string): Promise<InvoiceA
   return normalizeInvoiceData(parsed);
 }
 
+function isEmptyValue(value: unknown): boolean {
+  if (value === null || value === undefined) return true;
+  if (typeof value === "string") return value.trim().length === 0;
+  if (Array.isArray(value)) return value.length === 0;
+  return false;
+}
+
+function mergeInvoiceResults(results: InvoiceAIResult[]): InvoiceAIResult {
+  const merged: Record<string, any> = normalizeInvoiceData(results[0]);
+
+  for (let i = 1; i < results.length; i++) {
+    const current = results[i] as Record<string, any>;
+
+    for (const [key, currentValue] of Object.entries(current)) {
+      const mergedValue = merged[key];
+
+      if (Array.isArray(currentValue)) {
+        const mergedArray = Array.isArray(mergedValue) ? mergedValue : [];
+        merged[key] = [...mergedArray, ...currentValue];
+        continue;
+      }
+
+      if (typeof currentValue === "object" && currentValue !== null) {
+        const mergedObject = typeof mergedValue === "object" && mergedValue !== null ? mergedValue : {};
+        merged[key] = { ...mergedObject, ...currentValue };
+        continue;
+      }
+
+      if (isEmptyValue(mergedValue) && !isEmptyValue(currentValue)) {
+        merged[key] = currentValue;
+      }
+    }
+  }
+
+  return merged as InvoiceAIResult;
+}
+
 /**
  * Analyze a PDF document (converted to images)
  */
@@ -61,15 +98,26 @@ export async function analyzePDFImages(imagePages: string[]): Promise<InvoiceAIR
     return analyzeInvoiceImage(imagePages[0]);
   }
 
-  // For multi-page, analyze first page primarily
-  // Could be enhanced to merge results from multiple pages
-  const result = await analyzeInvoiceImage(imagePages[0]);
+  const results: InvoiceAIResult[] = [];
 
-  if (result) {
-    result.ai_comment = `${result.ai_comment || ""} [Document de ${imagePages.length} pages - première page analysée]`.trim();
+  for (let index = 0; index < imagePages.length; index++) {
+    const page = imagePages[index];
+    const pageResult = await analyzeInvoiceImage(page);
+    if (pageResult) {
+      results.push(pageResult);
+    } else {
+      console.warn(`[AI] Page ${index + 1} ignorée: analyse échouée`);
+    }
   }
 
-  return result;
+  if (results.length === 0) {
+    return null;
+  }
+
+  const merged = mergeInvoiceResults(results);
+  merged.ai_comment = `${merged.ai_comment || ""} [Document de ${imagePages.length} pages - fusion automatique]`.trim();
+
+  return merged;
 }
 
 /**

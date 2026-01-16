@@ -28,6 +28,8 @@ export const InvoiceAIResultSchema = z.object({
   adresse_fournisseur: z.string().optional(),
   telephone_fournisseur: z.string().optional(),
   email_fournisseur: z.string().optional(),
+  rccm_fournisseur: z.string().optional(),
+  ncc_fournisseur: z.string().optional(),
   siret_fournisseur: z.string().optional(),
   tva_intracom: z.string().optional(),
   

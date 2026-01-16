@@ -18,6 +18,7 @@ import { grandLivre } from "./routes/grand-livre.js";
 import { lettrage } from "./routes/lettrage.js";
 import { etatsFinanciers } from "./routes/etats-financiers.js";
 import { audit } from "./routes/audit.js";
+import { companyRoutes } from "./routes/company.js";
 
 // Create Hono app
 export const app = new Hono();
@@ -56,6 +57,7 @@ app.route("/api/grand-livre", grandLivre);
 app.route("/api/lettrage", lettrage);
 app.route("/api/etats-financiers", etatsFinanciers);
 app.route("/api/audit", audit);
+app.route("/api/company", companyRoutes);
 
 // Root endpoint
 app.get("/", (c) => {

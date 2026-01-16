@@ -32,8 +32,8 @@ export const INVOICE_ANALYSIS_PROMPT = `Tu es un ASSISTANT COMPTABLE. Analyse ce
    - Date de facture (date d'enregistrement comptable)
 
 2. PARTIES CONCERNÉES
-   - Fournisseur: Nom complet, N° TVA/SIRET si visible, adresse
-   - Client: Nom, adresse si visible
+  - Fournisseur: Nom complet, RCCM/NCC/NIF si visible, adresse
+  - Client: Nom, adresse si visible
 
 3. MONTANTS FINANCIERS (CRUCIAL pour l'écriture comptable)
    - Montant HT (base de calcul)
@@ -90,8 +90,8 @@ export const INVOICE_ANALYSIS_PROMPT = `Tu es un ASSISTANT COMPTABLE. Analyse ce
   "date_echeance": "JJ/MM/AAAA",
   
   "fournisseur": "Nom complet",
-  "siret_fournisseur": "SIRET/SIREN/RC",
-  "tva_intracom": "N° TVA intracommunautaire",
+  "rccm_fournisseur": "RCCM",
+  "ncc_fournisseur": "NCC/NIF/IDU",
   "adresse_fournisseur": "Adresse complète",
   "telephone_fournisseur": "Tel",
   "email_fournisseur": "Email",
@@ -118,7 +118,7 @@ export const INVOICE_ANALYSIS_PROMPT = `Tu es un ASSISTANT COMPTABLE. Analyse ce
   ],
   "total_tva": "Total TVA",
   "montant_total": "NET À PAYER (TTC)",
-  "devise": "EUR | XOF | USD",
+  "devise": "XOF | EUR | USD",
   
   "remise": "Remise si applicable",
   "acompte": "Acompte versé",

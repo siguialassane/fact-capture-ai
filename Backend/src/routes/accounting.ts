@@ -16,6 +16,8 @@ const accounting = new Hono();
 const GenerateEntrySchema = z.object({
   invoiceData: z.record(z.any()), // FlexibleInvoiceAIResult
   invoiceId: z.number().optional(), // ID de la facture source
+  statutPaiement: z.enum(["paye", "non_paye", "partiel", "inconnu"]).optional(),
+  montantPartiel: z.number().optional(),
 });
 
 // Schema pour l'affinement d'écriture
@@ -84,7 +86,7 @@ accounting.post(
   "/generate",
   zValidator("json", GenerateEntrySchema),
   async (c) => {
-    const { invoiceData, invoiceId } = c.req.valid("json");
+    const { invoiceData, invoiceId, statutPaiement, montantPartiel } = c.req.valid("json");
 
     console.log("[Accounting API] Génération d'écriture comptable...");
 
@@ -92,7 +94,14 @@ accounting.post(
       // Récupérer le contexte comptable depuis la base de données
       const accountingContext = await getAccountingContext();
 
-      const result: AccountingResult = await generateAccountingEntry(invoiceData as any, accountingContext);
+      const result: AccountingResult = await generateAccountingEntry(
+        invoiceData as any,
+        accountingContext,
+        {
+          statutPaiement,
+          montantPartiel,
+        }
+      );
 
       if (!result.success) {
         return c.json({
@@ -370,17 +379,33 @@ accounting.post(
 /**
  * GET /accounting/entries
  * Liste les écritures comptables
+ * Query params: ?invoice_id=X pour filtrer par facture
  */
 accounting.get("/entries", async (c) => {
   try {
-    const { data: entries, error } = await getSupabase()
+    const invoiceId = c.req.query("invoice_id");
+
+    let query = getSupabase()
       .from("journal_entries")
       .select(`
         *,
-        journal_entry_lines (*)
+        lignes:journal_entry_lines (
+          compte_numero,
+          libelle_ligne:libelle,
+          debit,
+          credit
+        )
       `)
-      .order("date_piece", { ascending: false })
-      .limit(50);
+      .order("date_piece", { ascending: false });
+
+    // Filtrer par invoice_id si fourni
+    if (invoiceId) {
+      query = query.eq("invoice_id", parseInt(invoiceId));
+    } else {
+      query = query.limit(50);
+    }
+
+    const { data: entries, error } = await query;
 
     if (error) throw error;
 
@@ -395,6 +420,95 @@ accounting.get("/entries", async (c) => {
       error: {
         code: "FETCH_ERROR",
         message: "Erreur lors de la récupération des écritures",
+      },
+    }, 500);
+  }
+});
+
+/**
+ * POST /accounting/entries/:id/validate
+ * Valide une écriture comptable (passe du statut "brouillon" à "valide")
+ */
+accounting.post("/entries/:id/validate", async (c) => {
+  try {
+    const entryId = c.req.param("id");
+
+    console.log(`[Accounting API] Validation de l'écriture ${entryId}...`);
+
+    // Vérifier que l'écriture existe et est bien en brouillon
+    const { data: entry, error: fetchError } = await getSupabase()
+      .from("journal_entries")
+      .select("*")
+      .eq("id", entryId)
+      .single();
+
+    if (fetchError || !entry) {
+      return c.json({
+        success: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "Écriture comptable introuvable",
+        },
+      }, 404);
+    }
+
+    if (entry.statut !== "brouillon") {
+      return c.json({
+        success: false,
+        error: {
+          code: "INVALID_STATUS",
+          message: `Cette écriture est déjà au statut "${entry.statut}"`,
+        },
+      }, 400);
+    }
+
+    // Mettre à jour le statut à "valide"
+    const { data: updatedEntry, error: updateError } = await getSupabase()
+      .from("journal_entries")
+      .update({
+        statut: "valide",
+        validated_at: new Date().toISOString(),
+      })
+      .eq("id", entryId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error("[Accounting API] Erreur validation:", updateError);
+      throw updateError;
+    }
+
+    // Logger l'audit
+    await getSupabase().from("control_audit_log").insert({
+      control_type: "entry_validated",
+      entity_type: "journal_entry",
+      entity_id: entryId,
+      status: "passed",
+      message: `Écriture ${entry.numero_piece} validée avec succès`,
+      details: {
+        previous_status: "brouillon",
+        new_status: "valide",
+      },
+      executed_by: "user",
+    });
+
+    console.log(`[Accounting API] Écriture ${entryId} validée avec succès`);
+
+    return c.json({
+      success: true,
+      data: {
+        entry: updatedEntry,
+        message: "Écriture validée avec succès",
+      },
+    });
+  } catch (error) {
+    console.error("[Accounting API] Erreur validation:", error);
+    return c.json({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Erreur lors de la validation de l'écriture",
+        details: error instanceof Error ? error.message : String(error),
       },
     }, 500);
   }
@@ -630,15 +744,15 @@ async function getAccountingContext() {
   // Tiers (fournisseurs et clients)
   const { data: tiers } = await getSupabase()
     .from("tiers")
-    .select("code, nom, type_tiers, numero_compte_defaut")
-    .eq("actif", true)
-    .order("nom");
+    .select("code, raison_sociale, type_tiers, compte_comptable, est_actif")
+    .eq("est_actif", true)
+    .order("raison_sociale");
 
   // Taux de TVA
   const { data: taxRates } = await getSupabase()
     .from("tax_rates")
-    .select("code, taux, libelle")
-    .eq("actif", true);
+    .select("code, taux, libelle, est_actif")
+    .eq("est_actif", true);
 
   // Journaux (utilise la table journaux unifiée)
   const { data: journauxData } = await getSupabase()
@@ -661,10 +775,27 @@ async function getAccountingContext() {
 
   return {
     plan_comptable: comptes || [],
-    tiers: tiers || [],
-    taux_tva: taxRates || [],
+    tiers: (tiers || []).map((t: { code: string; raison_sociale: string; type_tiers: string; compte_comptable: string }) => ({
+      code: t.code,
+      nom: t.raison_sociale,
+      type_tiers: t.type_tiers,
+      numero_compte_defaut: t.compte_comptable,
+    })),
+    taux_tva: (taxRates || []).map((t: { code: string; taux: number; libelle: string }) => ({
+      code: t.code,
+      taux: t.taux,
+      libelle: t.libelle,
+    })),
     journaux,
-    entreprise: company || null,
+    entreprise: company
+      ? {
+          nom: company.raison_sociale,
+          forme_juridique: company.forme_juridique,
+          adresse: company.adresse,
+          ville: company.ville,
+          pays: company.pays,
+        }
+      : null,
   };
 }
 

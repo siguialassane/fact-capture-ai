@@ -27,7 +27,17 @@ export interface InvoiceListItem {
   id: number;
   created_at: string;
   ai_result?: Record<string, unknown> | null;
-  session_id?: string | null;
+}
+
+export interface InvoiceWithEntry extends InvoiceListItem {
+  journal_entries?: Array<{
+    id: string;
+    journal_code: string;
+    statut: string;
+    total_debit: number;
+    total_credit: number;
+    created_at: string;
+  }> | null;
 }
 
 /**
@@ -55,7 +65,7 @@ class InvoiceRepositoryClass extends BaseRepository {
 
     const { data, error, count } = await this.db
       .from("invoices")
-      .select("id, created_at, ai_result, session_id", { count: "exact" })
+      .select("id, created_at, ai_result", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -66,6 +76,49 @@ class InvoiceRepositoryClass extends BaseRepository {
 
     return {
       data: data || [],
+      meta: {
+        total: count || 0,
+        limit,
+        offset,
+      },
+    };
+  }
+
+  /**
+   * Récupère toutes les factures avec leurs écritures comptables liées
+   */
+  async findAllWithEntries(options: PaginationOptions = {}): Promise<PaginatedResult<InvoiceWithEntry>> {
+    const limit = options.limit ?? 50;
+    const offset = options.offset ?? 0;
+
+    const { data, error, count } = await this.db
+      .from("invoices")
+      .select(
+        `
+        id,
+        created_at,
+        ai_result,
+        journal_entries (
+          id,
+          journal_code,
+          statut,
+          total_debit,
+          total_credit,
+          created_at
+        )
+      `,
+        { count: "exact" }
+      )
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.error("[InvoiceRepository] findAllWithEntries error:", error);
+      throw new Error("Failed to fetch invoices with entries");
+    }
+
+    return {
+      data: (data as InvoiceWithEntry[]) || [],
       meta: {
         total: count || 0,
         limit,

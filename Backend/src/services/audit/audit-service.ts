@@ -8,7 +8,7 @@
 import { config } from "../../config/env";
 import { getSupabase } from "../../lib/supabase";
 import {
-  AUDIT_SYSTEM_PROMPT,
+  buildAuditSystemPrompt,
   buildAuditEtatsFinanciersPrompt,
   buildAuditEcriturePrompt,
 } from "./prompts";
@@ -125,6 +125,38 @@ async function callGeminiAudit(
   }
 }
 
+async function getCompanyContext() {
+  try {
+    const { data } = await getSupabase()
+      .from("company_info")
+      .select("raison_sociale, forme_juridique, ville, pays")
+      .single();
+
+    if (!data) {
+      return {
+        companyName: "Entreprise auditée",
+        companyLocation: "Localisation non spécifiée",
+        companyActivity: "Activité non spécifiée",
+      };
+    }
+
+    const companyName = data.raison_sociale || "Entreprise auditée";
+    const companyLocation = [data.ville, data.pays].filter(Boolean).join(", ") || "Localisation non spécifiée";
+
+    return {
+      companyName,
+      companyLocation,
+      companyActivity: "Activité non spécifiée",
+    };
+  } catch {
+    return {
+      companyName: "Entreprise auditée",
+      companyLocation: "Localisation non spécifiée",
+      companyActivity: "Activité non spécifiée",
+    };
+  }
+}
+
 /**
  * Récupère les données nécessaires pour l'audit depuis la BD
  */
@@ -179,6 +211,10 @@ async function getAuditData(exercice: string) {
       debit,
       credit
     `);
+
+  if (errSoldes) {
+    console.error("[Audit] Erreur récupération soldes:", errSoldes);
+  }
 
   // Agréger les soldes par compte
   const soldesParCompte: Record<string, { debit: number; credit: number; solde: number }> = {};
@@ -399,7 +435,9 @@ export async function auditEtatsFinanciers(exercice: string): Promise<AuditResul
     );
 
     // Appeler Gemini pour l'audit approfondi
-    const { result, duration_ms } = await callGeminiAudit(AUDIT_SYSTEM_PROMPT, userPrompt);
+    const companyContext = await getCompanyContext();
+    const systemPrompt = buildAuditSystemPrompt(companyContext);
+    const { result, duration_ms } = await callGeminiAudit(systemPrompt, userPrompt);
 
     // Fusionner les anomalies locales avec celles de Gemini
     result.anomalies = [...anomaliesLocales, ...result.anomalies];
@@ -441,7 +479,9 @@ export async function auditEcriture(
 
   try {
     const userPrompt = buildAuditEcriturePrompt(factureJson, ecriture);
-    const { result } = await callGeminiAudit(AUDIT_SYSTEM_PROMPT, userPrompt);
+    const companyContext = await getCompanyContext();
+    const systemPrompt = buildAuditSystemPrompt(companyContext);
+    const { result } = await callGeminiAudit(systemPrompt, userPrompt);
     return result;
   } catch (error) {
     console.error("[Audit Écriture] Erreur:", error);

@@ -7,7 +7,7 @@ export {
 } from "./audit-service";
 
 export {
-  AUDIT_SYSTEM_PROMPT,
+  buildAuditSystemPrompt,
   buildAuditEtatsFinanciersPrompt,
   buildAuditEcriturePrompt,
 } from "./prompts";

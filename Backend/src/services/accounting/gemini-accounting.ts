@@ -61,36 +61,30 @@ export interface AccountingResult {
 }
 
 const ACCOUNTING_CONTEXT = `Tu es un expert-comptable certifié spécialisé dans la comptabilité SYSCOHADA (Système Comptable Ouest-Africain).
-Tu travailles pour l'entreprise EXIAS SARL, une société de vente de matériel informatique basée à Abidjan, Côte d'Ivoire.
+Tu travailles pour l'entreprise cible (nom fourni dynamiquement par l'application) basée en Côte d'Ivoire.
 
 ## ⚠️⚠️⚠️ RÈGLE CRITIQUE N°1 - IDENTIFICATION VENTE vs ACHAT ⚠️⚠️⚠️
 
 ### CONTEXTE IMPORTANT :
-Les données JSON que tu reçois proviennent d'une IA d'extraction (Qwen) qui analyse visuellement les factures.
+Les données JSON que tu reçois proviennent d'une IA d'extraction qui analyse visuellement les factures.
 - Le champ "fournisseur" dans le JSON = l'ÉMETTEUR de la facture (celui qui l'a créée)
 - Le champ "client" dans le JSON = le DESTINATAIRE de la facture
 
 ### RÈGLE DE DÉCISION ABSOLUE :
 
-**NOUS SOMMES : EXIAS - Solutions Informatiques**
+**NOUS SOMMES : l'entreprise cible (nom fourni dynamiquement)**
 
 Pour déterminer si c'est une VENTE ou un ACHAT, regarde le champ "fournisseur" du JSON :
 
-✅ Si "fournisseur" contient "EXIAS" → **C'EST UNE VENTE** (NOUS avons émis cette facture)
-   - Journal : VE (Ventes)
-   - Le "client" du JSON = NOTRE CLIENT (il nous doit de l'argent)
-   - Comptes : 4111 (Clients) au DÉBIT / 70xx (Ventes) au CRÉDIT / 4431 (TVA collectée) au CRÉDIT
+✅ Si "fournisseur" contient le nom de l'entreprise → **C'EST UNE VENTE** (NOUS avons émis cette facture)
+  - Journal : VE (Ventes)
+  - Le "client" du JSON = NOTRE CLIENT (il nous doit de l'argent)
+  - Comptes : 4111 (Clients) au DÉBIT / 70xx (Ventes) au CRÉDIT / 4431 (TVA collectée) au CRÉDIT
 
-❌ Si "fournisseur" NE contient PAS "EXIAS" → **C'EST UN ACHAT** (nous avons REÇU cette facture)
-   - Journal : AC ou BQ ou CA selon le paiement
-   - Le "fournisseur" du JSON = notre fournisseur (nous lui devons de l'argent)
-   - Comptes : 60xx (Achats) au DÉBIT / 4452 (TVA déductible) au DÉBIT / 4011 ou trésorerie au CRÉDIT
-
-### EXEMPLE CONCRET :
-JSON reçu : { "fournisseur": "EXIAS - Solutions Informatiques", "client": "Cabinet Koffi" }
-→ "fournisseur" contient "EXIAS" → C'EST UNE VENTE !
-→ Cabinet Koffi est NOTRE CLIENT
-→ Journal VE, 4111 (Clients) au débit
+❌ Si "fournisseur" NE contient PAS le nom de l'entreprise → **C'EST UN ACHAT** (nous avons REÇU cette facture)
+  - Journal : AC ou BQ ou CA selon le paiement
+  - Le "fournisseur" du JSON = notre fournisseur (nous lui devons de l'argent)
+  - Comptes : 60xx (Achats) au DÉBIT / 4452 (TVA déductible) au DÉBIT / 4011 ou trésorerie au CRÉDIT
 
 
 ## PLAN COMPTABLE SYSCOHADA - Comptes principaux
@@ -238,8 +232,13 @@ Crédit: 4431 (TVA collectée)    Montant TVA
 /**
  * Prompt pour générer l'écriture comptable
  */
-function buildAccountingPrompt(invoiceData: InvoiceAIResult): string {
+function buildAccountingPrompt(
+  invoiceData: InvoiceAIResult,
+  options?: { statutPaiement?: "paye" | "non_paye" | "partiel" | "inconnu"; montantPartiel?: number }
+): string {
   const jsonData = JSON.stringify(invoiceData, null, 2);
+  const statutPaiement = options?.statutPaiement || "inconnu";
+  const montantPartiel = options?.montantPartiel;
 
   return `## DONNÉES DE LA FACTURE À COMPTABILISER
 
@@ -252,6 +251,10 @@ ${jsonData}
 Analyse cette facture/ticket et génère l'écriture comptable correspondante en respectant les règles SYSCOHADA.
 
 ### Étapes à suivre DANS CET ORDRE:
+
+0. **STATUT DE PAIEMENT CONFIRMÉ PAR L'UTILISATEUR** (prioritaire si fourni):
+  - statut: ${statutPaiement}
+  ${statutPaiement === "partiel" && typeof montantPartiel === "number" ? `- montant déjà payé: ${montantPartiel}` : ""}
 
 1. **IDENTIFIE LE TYPE DE DOCUMENT**:
    - Est-ce un TICKET DE CAISSE ? (mot "TICKET", numéro style TICKET-XXXXX, format compact, "RENDU MONNAIE")
@@ -273,6 +276,13 @@ Analyse cette facture/ticket et génère l'écriture comptable correspondante en
    - Montant TTC
 
 5. **GÉNÈRE L'ÉCRITURE** avec le BON JOURNAL et la BONNE CONTREPARTIE
+
+### RÈGLE SPÉCIALE - PAIEMENT PARTIEL
+Si statut = "partiel":
+- Écris une seule écriture équilibrée incluant:
+  - La dette/creance totale (4011 ou 4111) POUR LE SOLDE RESTANT
+  - La trésorerie (521x ou 571) POUR LE MONTANT DÉJÀ PAYÉ
+  - Les comptes de charges/produits + TVA sur le TOTAL TTC
 
 ### RAPPEL CRITIQUE DES JOURNAUX:
 
@@ -379,23 +389,27 @@ function buildDynamicAccountingContext(dbContext?: AccountingContext): string {
   const fournisseurs = tiers.filter(t => t.type_tiers === 'fournisseur');
   const clients = tiers.filter(t => t.type_tiers === 'client');
 
+  const entrepriseNom = entreprise?.nom?.trim() || "EXIAS - Solutions Informatiques";
+  const entrepriseLieu = entreprise ? `${entreprise.ville}, ${entreprise.pays}` : "Abidjan, Côte d'Ivoire";
+  const entrepriseForme = entreprise?.forme_juridique || "";
+
   return `Tu es un expert-comptable certifié spécialisé dans la comptabilité SYSCOHADA (Système Comptable Ouest-Africain).
-${entreprise ? `Tu travailles pour l'entreprise ${entreprise.nom} (${entreprise.forme_juridique}), basée à ${entreprise.ville}, ${entreprise.pays}.` : "Tu travailles pour l'entreprise EXIAS - Solutions Informatiques, basée à Abidjan, Côte d'Ivoire."}
+Tu travailles pour l'entreprise ${entrepriseNom}${entrepriseForme ? ` (${entrepriseForme})` : ""}, basée à ${entrepriseLieu}.
 
 ## ⚠️⚠️⚠️ RÈGLE CRITIQUE N°1 - IDENTIFICATION VENTE vs ACHAT ⚠️⚠️⚠️
 
-**NOTRE ENTREPRISE : EXIAS - Solutions Informatiques**
+**NOTRE ENTREPRISE : ${entrepriseNom}**
 
 Les données JSON que tu reçois contiennent un champ "fournisseur" qui représente l'ÉMETTEUR de la facture.
 
 ### RÈGLE DE DÉCISION ABSOLUE :
 
-✅ Si le champ "fournisseur" contient "EXIAS" → **C'EST UNE VENTE** (nous avons ÉMIS cette facture)
+✅ Si le champ "fournisseur" contient le nom de notre entreprise (${entrepriseNom}) → **C'EST UNE VENTE** (nous avons ÉMIS cette facture)
    - Journal : VE (Ventes) si à crédit, BQ si payée par banque, CA si espèces
    - Le "client" du JSON = NOTRE CLIENT (il nous doit de l'argent)
    - Comptes : 4111 (Clients) au DÉBIT / 70xx (Ventes) au CRÉDIT / 4431 (TVA collectée) au CRÉDIT
 
-❌ Si le champ "fournisseur" NE contient PAS "EXIAS" → **C'EST UN ACHAT** (nous avons REÇU cette facture)
+❌ Si le champ "fournisseur" NE contient PAS le nom de notre entreprise → **C'EST UN ACHAT** (nous avons REÇU cette facture)
    - Journal : AC si à crédit, BQ si payée par banque, CA si espèces
    - Le "fournisseur" du JSON = notre fournisseur (nous lui devons de l'argent)
    - Comptes : 60xx (Achats) au DÉBIT / 4452 (TVA déductible) au DÉBIT / 4011 ou trésorerie au CRÉDIT
@@ -420,7 +434,7 @@ ${taux_tva.map(t => `- ${t.libelle}: ${t.taux}%`).join('\n')}
 ## JOURNAUX COMPTABLES
 ${journaux.map(j => `- ${j.code} - ${j.libelle} (${j.type_journal})`).join('\n')}
 
-## RÈGLES COMPTABLES - ACHATS (quand fournisseur n'est PAS EXIAS)
+## RÈGLES COMPTABLES - ACHATS (quand fournisseur n'est PAS notre entreprise)
 
 ### ACHAT - Ticket de caisse (espèces) → Journal CA
 Débit: 6xxx (Charge) HT | Débit: 4452 (TVA déductible) | Crédit: 571 (Caisse) TTC
@@ -431,7 +445,7 @@ Débit: 6xxx (Charge) HT | Débit: 4452 (TVA déductible) | Crédit: 4011 (Fourn
 ### ACHAT - Facture payée par banque → Journal BQ
 Débit: 6xxx (Charge) HT | Débit: 4452 (TVA déductible) | Crédit: 521x (Banque) TTC
 
-## RÈGLES COMPTABLES - VENTES (quand fournisseur EST EXIAS)
+## RÈGLES COMPTABLES - VENTES (quand fournisseur EST notre entreprise)
 
 ### VENTE - Facture client à crédit → Journal VE
 Débit: 4111 (Clients) TTC | Crédit: 70xx (Ventes) HT | Crédit: 4431 (TVA collectée)
@@ -451,7 +465,7 @@ ${fournisseurs.map(f => `- ${f.code}: ${f.nom} (compte: ${f.numero_compte_defaut
 ${clients.map(c => `- ${c.code}: ${c.nom} (compte: ${c.numero_compte_defaut || '4111'})`).join('\n')}
 
 ## Principes:
-- TOUJOURS vérifier si fournisseur = EXIAS pour déterminer VENTE vs ACHAT
+- TOUJOURS vérifier si fournisseur = ${entrepriseNom} pour déterminer VENTE vs ACHAT
 - Une écriture doit TOUJOURS être équilibrée (Total Débit = Total Crédit)
 - Le libellé doit mentionner le numéro de facture et le nom du tiers
 `;
@@ -462,7 +476,8 @@ ${clients.map(c => `- ${c.code}: ${c.nom} (compte: ${c.numero_compte_defaut || '
  */
 export async function generateAccountingEntry(
   invoiceData: InvoiceAIResult,
-  dbContext?: AccountingContext
+  dbContext?: AccountingContext,
+  options?: { statutPaiement?: "paye" | "non_paye" | "partiel" | "inconnu"; montantPartiel?: number }
 ): Promise<AccountingResult> {
   if (!OPENROUTER_API_KEY) {
     return {
@@ -494,7 +509,7 @@ export async function generateAccountingEntry(
           },
           {
             role: "user",
-            content: buildAccountingPrompt(invoiceData),
+            content: buildAccountingPrompt(invoiceData, options),
           },
         ],
         reasoning: { enabled: true },
