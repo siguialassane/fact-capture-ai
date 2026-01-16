@@ -16,3 +16,4 @@ export { EtatsFinanciersClient } from "./etats-financiers-client";
 export { AuditClient } from "./audit-client";
 export { SessionsClient } from "./sessions-client";
 export { ExportClient } from "./export-client";
+export { CompanyClient } from "./company-client";

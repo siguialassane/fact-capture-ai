@@ -58,9 +58,7 @@ export function EtatsFinanciersView() {
   const [compteResultat, setCompteResultat] = useState<CompteResultat | null>(null);
   const [indicateurs, setIndicateurs] = useState<Indicateurs | null>(null);
   const [loading, setLoading] = useState(true);
-  const [exercice, setExercice] = useState<string>(() => {
-    return new Date().getFullYear().toString();
-  });
+  const [exercice, setExercice] = useState<string>("2025");
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(["actif-immobilise", "actif-circulant", "capitaux", "dettes", "charges", "produits"])
   );

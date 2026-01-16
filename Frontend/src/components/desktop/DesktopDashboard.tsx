@@ -10,6 +10,8 @@ import { JournauxView } from "@/components/journals";
 import { GrandLivreView } from "@/components/grand-livre";
 import { LettrageView } from "@/components/lettrage";
 import { EtatsFinanciersView } from "@/components/etats-financiers";
+import { InvoicesListView } from "@/components/invoices/InvoicesListView";
+import { CompanySettingsView } from "@/components/settings/CompanySettingsView";
 import { getLatestInvoice } from "@/lib/db";
 import { isOpenRouterConfigured, type FlexibleInvoiceAIResult } from "@/lib/openrouter";
 import {
@@ -456,13 +458,15 @@ export function DesktopDashboard() {
         onItemClick={setActiveMenuItem}
       />
 
-      {(activeMenuItem === "dashboard" || activeMenuItem === "journaux" || activeMenuItem === "grand-livre" || activeMenuItem === "lettrage" || activeMenuItem === "etats-financiers") ? (
+      {(activeMenuItem === "dashboard" || activeMenuItem === "journaux" || activeMenuItem === "grand-livre" || activeMenuItem === "lettrage" || activeMenuItem === "etats-financiers" || activeMenuItem === "invoices" || activeMenuItem === "settings") ? (
         <div className="flex-1 overflow-auto">
           {activeMenuItem === "dashboard" && <StatsDashboard />}
           {activeMenuItem === "journaux" && <JournauxView />}
           {activeMenuItem === "grand-livre" && <GrandLivreView />}
           {activeMenuItem === "lettrage" && <LettrageView />}
           {activeMenuItem === "etats-financiers" && <EtatsFinanciersView />}
+          {activeMenuItem === "invoices" && <InvoicesListView />}
+          {activeMenuItem === "settings" && <CompanySettingsView />}
         </div>
       ) : (
         <div className="flex-1 flex">

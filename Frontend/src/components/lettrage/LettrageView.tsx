@@ -60,7 +60,7 @@ export function LettrageView() {
   const [processing, setProcessing] = useState(false);
   
   // Filtres
-  const [compteFilter, setCompteFilter] = useState("401");
+  const [compteFilter, setCompteFilter] = useState("411");
   const [statutFilter, setStatutFilter] = useState<"non_lettre" | "lettre" | "">("");
   const [searchQuery, setSearchQuery] = useState("");
 

@@ -104,6 +104,22 @@ export function AccountingEntryView({
     }
   };
 
+  const paiementStatus = confirmedStatus || "inconnu";
+  const paiementLabel = paiementStatus === "paye"
+    ? "Payée"
+    : paiementStatus === "non_paye"
+      ? "Non payée"
+      : paiementStatus === "partiel"
+        ? "Partielle"
+        : "Inconnu";
+  const paiementBadgeVariant = paiementStatus === "paye"
+    ? "default"
+    : paiementStatus === "partiel"
+      ? "secondary"
+      : paiementStatus === "non_paye"
+        ? "destructive"
+        : "outline";
+
   // --- RENDU : CHARGEMENT ---
   if (status === "generating") {
     return (
@@ -154,6 +170,12 @@ export function AccountingEntryView({
               <span className="font-mono font-bold bg-slate-100 px-2.5 py-0.5 rounded text-slate-700 border border-slate-200">
                 {entry.journal_code}
               </span>
+              <Badge variant={paiementBadgeVariant} className="ml-2">
+                {paiementLabel}
+                {paiementStatus === "partiel" && typeof confirmedPartialAmount === "number" && (
+                  <span className="ml-1">({formatAmount(confirmedPartialAmount)})</span>
+                )}
+              </Badge>
             </div>
           </div>
         </div>

@@ -13,12 +13,28 @@ import {
     Building2,
     PieChart as PieChartIcon,
     BarChart3,
-    Loader2
+    Loader2,
+    Info
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from "@/components/ui/dialog";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
 import {
     BarChart,
     Bar,
@@ -44,7 +60,8 @@ function MetricCard({
     trend,
     trendLabel,
     icon: Icon,
-    color = "blue"
+    color = "blue",
+    onDetailClick
 }: {
     title: string;
     value: number;
@@ -52,7 +69,8 @@ function MetricCard({
     trend?: "up" | "down" | "neutral";
     trendLabel?: string;
     icon: any;
-    color?: "blue" | "emerald" | "violet" | "orange"
+    color?: "blue" | "emerald" | "violet" | "orange";
+    onDetailClick?: () => void;
 }) {
     const colorStyles = {
         blue: "bg-blue-50 text-blue-700",
@@ -65,18 +83,30 @@ function MetricCard({
     const TrendIcon = trend === "up" ? ArrowUpRight : trend === "down" ? ArrowDownRight : Activity;
 
     return (
-        <Card className="shadow-sm hover:shadow-md transition-shadow">
+        <Card className="shadow-sm hover:shadow-md transition-shadow relative group">
             <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
                     <div className={`p-2 rounded-lg ${colorStyles[color]}`}>
                         <Icon className="h-6 w-6" />
                     </div>
-                    {trend && (
-                        <div className={`flex items-center text-xs font-medium px-2 py-1 rounded-full bg-slate-100 ${trendColor}`}>
-                            <TrendIcon className="h-3 w-3 mr-1" />
-                            {trendLabel}
-                        </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                        {trend && (
+                            <div className={`flex items-center text-xs font-medium px-2 py-1 rounded-full bg-slate-100 ${trendColor}`}>
+                                <TrendIcon className="h-3 w-3 mr-1" />
+                                {trendLabel}
+                            </div>
+                        )}
+                        {onDetailClick && (
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={onDetailClick}
+                            >
+                                <Info className="h-4 w-4" />
+                            </Button>
+                        )}
+                    </div>
                 </div>
                 <div>
                     <p className="text-sm font-medium text-slate-500">{title}</p>
@@ -88,13 +118,15 @@ function MetricCard({
 }
 
 export function StatsDashboard() {
-    const [exercice, setExercice] = useState<string>(new Date().getFullYear().toString());
+    const [exercice, setExercice] = useState<string>("2025");
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<{
         bilan: Bilan | null;
         resultat: CompteResultat | null;
         indicateurs: Indicateurs | null;
     }>({ bilan: null, resultat: null, indicateurs: null });
+    const [showDetailDialog, setShowDetailDialog] = useState(false);
+    const [detailContent, setDetailContent] = useState<{title: string; content: JSX.Element} | null>(null);
 
     useEffect(() => {
         async function load() {
@@ -123,7 +155,215 @@ export function StatsDashboard() {
         );
     }
 
-    const { bilan, resultat, indicateurs } = data;
+    const { bilan, resultat, indicateurs} = data;
+
+    const formatMontant = (montant: number) => {
+        return montant.toLocaleString("fr-FR", {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        }) + " FCFA";
+    };
+
+    // Fonctions pour ouvrir les détails
+    const showProduitsDetail = () => {
+        if (!resultat) return;
+        setDetailContent({
+            title: "Détails du Chiffre d'Affaires",
+            content: (
+                <div className="space-y-4">
+                    <p className="text-sm text-slate-500">
+                        Voici le détail des produits (classe 7) pour l'exercice {exercice}
+                    </p>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Compte</TableHead>
+                                <TableHead>Libellé</TableHead>
+                                <TableHead className="text-right">Montant</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {resultat.produits.map((ligne, idx) => (
+                                <TableRow key={idx}>
+                                    <TableCell className="font-mono text-sm">{ligne.compte}</TableCell>
+                                    <TableCell>{ligne.libelle}</TableCell>
+                                    <TableCell className="text-right font-mono font-medium">
+                                        {formatMontant(ligne.montant)}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                            <TableRow className="font-bold bg-slate-50">
+                                <TableCell colSpan={2}>TOTAL PRODUITS</TableCell>
+                                <TableCell className="text-right font-mono">
+                                    {formatMontant(resultat.total_produits)}
+                                </TableCell>
+                            </TableRow>
+                        </TableBody>
+                    </Table>
+                </div>
+            )
+        });
+        setShowDetailDialog(true);
+    };
+
+    const showResultatDetail = () => {
+        if (!resultat) return;
+        setDetailContent({
+            title: "Détails du Résultat Net",
+            content: (
+                <div className="space-y-4">
+                    <p className="text-sm text-slate-500">
+                        Calcul du résultat net pour l'exercice {exercice}
+                    </p>
+                    <div className="grid grid-cols-2 gap-6">
+                        <div>
+                            <h4 className="font-semibold text-green-700 mb-2">Produits (Classe 7)</h4>
+                            <Table>
+                                <TableBody>
+                                    {resultat.produits.map((ligne, idx) => (
+                                        <TableRow key={idx}>
+                                            <TableCell className="text-sm">{ligne.libelle}</TableCell>
+                                            <TableCell className="text-right font-mono text-sm">
+                                                {formatMontant(ligne.montant)}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    <TableRow className="font-bold bg-green-50">
+                                        <TableCell>TOTAL</TableCell>
+                                        <TableCell className="text-right font-mono">
+                                            {formatMontant(resultat.total_produits)}
+                                        </TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
+                        </div>
+                        <div>
+                            <h4 className="font-semibold text-red-700 mb-2">Charges (Classe 6)</h4>
+                            <Table>
+                                <TableBody>
+                                    {resultat.charges.length > 0 ? (
+                                        resultat.charges.map((ligne, idx) => (
+                                            <TableRow key={idx}>
+                                                <TableCell className="text-sm">{ligne.libelle}</TableCell>
+                                                <TableCell className="text-right font-mono text-sm">
+                                                    {formatMontant(ligne.montant)}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={2} className="text-center text-slate-400">
+                                                Aucune charge enregistrée
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                    <TableRow className="font-bold bg-red-50">
+                                        <TableCell>TOTAL</TableCell>
+                                        <TableCell className="text-right font-mono">
+                                            {formatMontant(resultat.total_charges)}
+                                        </TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+                    <div className="border-t-2 pt-4">
+                        <div className="flex justify-between items-center text-lg font-bold">
+                            <span>RÉSULTAT NET</span>
+                            <span className={`font-mono ${resultat.resultat_net >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {formatMontant(resultat.resultat_net)}
+                            </span>
+                        </div>
+                        <p className="text-sm text-slate-500 mt-2">
+                            Formule: Produits ({formatMontant(resultat.total_produits)}) - Charges ({formatMontant(resultat.total_charges)}) = {formatMontant(resultat.resultat_net)}
+                        </p>
+                    </div>
+                </div>
+            )
+        });
+        setShowDetailDialog(true);
+    };
+
+    const showTresorerieDetail = () => {
+        if (!bilan || !indicateurs) return;
+        setDetailContent({
+            title: "Détails de la Trésorerie Nette",
+            content: (
+                <div className="space-y-4">
+                    <p className="text-sm text-slate-500">
+                        Calcul de la trésorerie nette pour l'exercice {exercice}
+                    </p>
+                    <Table>
+                        <TableBody>
+                            <TableRow>
+                                <TableCell>Trésorerie Actif (Classe 5 débit)</TableCell>
+                                <TableCell className="text-right font-mono font-medium text-green-600">
+                                    {formatMontant(bilan.tresorerie_actif)}
+                                </TableCell>
+                            </TableRow>
+                            <TableRow>
+                                <TableCell>Trésorerie Passif (Découverts)</TableCell>
+                                <TableCell className="text-right font-mono font-medium text-red-600">
+                                    {formatMontant(bilan.tresorerie_passif)}
+                                </TableCell>
+                            </TableRow>
+                            <TableRow className="font-bold bg-blue-50">
+                                <TableCell>TRÉSORERIE NETTE</TableCell>
+                                <TableCell className="text-right font-mono">
+                                    {formatMontant(indicateurs.tresorerie_nette)}
+                                </TableCell>
+                            </TableRow>
+                        </TableBody>
+                    </Table>
+                    <p className="text-sm text-slate-500">
+                        Formule: Trésorerie Actif - Trésorerie Passif
+                    </p>
+                </div>
+            )
+        });
+        setShowDetailDialog(true);
+    };
+
+    const showDettesDetail = () => {
+        if (!bilan) return;
+        setDetailContent({
+            title: "Détails des Dettes Fournisseurs",
+            content: (
+                <div className="space-y-4">
+                    <p className="text-sm text-slate-500">
+                        Détail des dettes pour l'exercice {exercice}
+                    </p>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Compte</TableHead>
+                                <TableHead>Libellé</TableHead>
+                                <TableHead className="text-right">Montant</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {bilan.dettes.lignes.map((ligne, idx) => (
+                                <TableRow key={idx}>
+                                    <TableCell className="font-mono text-sm">{ligne.compte}</TableCell>
+                                    <TableCell>{ligne.libelle}</TableCell>
+                                    <TableCell className="text-right font-mono font-medium">
+                                        {formatMontant(ligne.montant)}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                            <TableRow className="font-bold bg-orange-50">
+                                <TableCell colSpan={2}>TOTAL DETTES</TableCell>
+                                <TableCell className="text-right font-mono">
+                                    {formatMontant(bilan.dettes.total)}
+                                </TableCell>
+                            </TableRow>
+                        </TableBody>
+                    </Table>
+                </div>
+            )
+        });
+        setShowDetailDialog(true);
+    };
 
     // Prepare Chart Data
     const revenueData = [
@@ -176,6 +416,7 @@ export function StatsDashboard() {
                         color="emerald"
                         trend="up"
                         trendLabel="Produits"
+                        onDetailClick={showProduitsDetail}
                     />
                     <MetricCard
                         title="Résultat Net"
@@ -184,6 +425,7 @@ export function StatsDashboard() {
                         color="violet"
                         trend={resultat?.resultat_net && resultat.resultat_net >= 0 ? "up" : "down"}
                         trendLabel={resultat?.resultat_net && resultat.resultat_net >= 0 ? "Bénéfice" : "Déficit"}
+                        onDetailClick={showResultatDetail}
                     />
                     <MetricCard
                         title="Trésorerie Nette"
@@ -191,6 +433,7 @@ export function StatsDashboard() {
                         icon={DollarSign}
                         color="blue"
                         trendLabel="Disponibilités"
+                        onDetailClick={showTresorerieDetail}
                     />
                     <MetricCard
                         title="Dettes Fournisseurs"
@@ -199,6 +442,7 @@ export function StatsDashboard() {
                         color="orange"
                         trend="neutral"
                         trendLabel="À payer"
+                        onDetailClick={showDettesDetail}
                     />
                 </div>
 
@@ -324,6 +568,28 @@ export function StatsDashboard() {
                 </div>
 
             </div>
+
+            {/* Dialog pour les détails */}
+            <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
+                    {detailContent && (
+                        <>
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2">
+                                    <Info className="h-5 w-5 text-blue-600" />
+                                    {detailContent.title}
+                                </DialogTitle>
+                                <DialogDescription>
+                                    Justificatif détaillé du calcul
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="mt-4">
+                                {detailContent.content}
+                            </div>
+                        </>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

@@ -28,6 +28,7 @@ import {
   AuditClient,
   SessionsClient,
   ExportClient,
+  CompanyClient,
 } from "./clients";
 
 // ===== IMPORT DES TYPES POUR LES ALIASES =====
@@ -39,6 +40,7 @@ import type {
   JournalCode,
   RegenerateAdditionalInfo,
   RegeneratedEntry,
+  CompanyInfo,
 } from "./types";
 
 const BACKEND_URL = config.backendUrl;
@@ -62,6 +64,7 @@ class BackendApiClient {
   private audit: AuditClient;
   private sessions: SessionsClient;
   private exports: ExportClient;
+  private company: CompanyClient;
 
   constructor(baseUrl: string = BACKEND_URL) {
     this.health = new HealthClient(baseUrl);
@@ -75,6 +78,7 @@ class BackendApiClient {
     this.audit = new AuditClient(baseUrl);
     this.sessions = new SessionsClient(baseUrl);
     this.exports = new ExportClient(baseUrl);
+    this.company = new CompanyClient(baseUrl);
   }
 
   // ===========================================================================
@@ -98,6 +102,8 @@ class BackendApiClient {
   // ===========================================================================
   getInvoices = (limit?: number, offset?: number) =>
     this.invoices.getInvoices(limit, offset);
+  getInvoicesWithEntries = (limit?: number, offset?: number) =>
+    this.invoices.getInvoicesWithEntries(limit, offset);
   getLatestInvoice = () =>
     this.invoices.getLatestInvoice();
   getInvoice = (id: string) =>
@@ -245,6 +251,12 @@ class BackendApiClient {
     format?: "csv" | "json" | "sage",
     options?: { convertToFCFA?: boolean; includeArticles?: boolean }
   ) => this.exports.exportInvoices(invoices, format, options);
+
+  // ==========================================================================
+  // COMPANY - Déléguées au CompanyClient
+  // ==========================================================================
+  getCompanyInfo = (): Promise<CompanyInfo | null> => this.company.getCompanyInfo();
+  updateCompanyInfo = (payload: Partial<CompanyInfo>) => this.company.updateCompanyInfo(payload);
 }
 
 // ===========================================================================
@@ -268,6 +280,17 @@ export * from "./clients";
 export type JournalEntry = AccountingEntry;
 
 // Fonctions aliases
+
+// Invoices
+export const getInvoices = backendApi.getInvoices;
+export const getInvoicesWithEntries = backendApi.getInvoicesWithEntries;
+export const getLatestInvoice = backendApi.getLatestInvoice;
+export const getInvoice = backendApi.getInvoice;
+export const createInvoice = backendApi.createInvoice;
+export const updateInvoice = backendApi.updateInvoice;
+export const deleteInvoice = backendApi.deleteInvoice;
+
+// Accounting
 export const generateAccountingEntry = backendApi.generateAccountingEntry;
 export const refineAccountingEntry = backendApi.refineAccountingEntry;
 export const getPlanComptable = backendApi.getPlanComptable;

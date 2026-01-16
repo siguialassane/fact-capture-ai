@@ -18,6 +18,7 @@ export * from "./grand-livre.types";
 
 // Lettrage types
 export * from "./lettrage.types";
+export * from "./company.types";
 
 // États Financiers types
 export * from "./etats-financiers.types";
