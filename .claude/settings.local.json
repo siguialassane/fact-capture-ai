@@ -10,7 +10,8 @@
       "Bash(find:*)",
       "Bash(npm run build)",
       "Bash(curl:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(wait:*)"
     ]
   }
 }

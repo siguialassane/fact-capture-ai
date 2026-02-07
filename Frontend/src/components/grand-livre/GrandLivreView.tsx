@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   BookOpen,
   Search,
@@ -66,29 +67,18 @@ const CLASSE_NAMES: Record<string, string> = {
 };
 
 export function GrandLivreView() {
-  const [comptes, setComptes] = useState<GrandLivreAccount[]>([]);
   const [selectedCompte, setSelectedCompte] = useState<string | null>(null);
   const [compteDetail, setCompteDetail] = useState<GrandLivreDetail | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [loading, setLoading] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [expandedClasses, setExpandedClasses] = useState<Set<string>>(new Set(["4", "6", "7"]));
 
-  // Charger les comptes
-  useEffect(() => {
-    async function loadComptes() {
-      setLoading(true);
-      try {
-        const data = await getComptesWithSoldes({ avecMouvements: true });
-        setComptes(data);
-      } catch (error) {
-        console.error("Erreur chargement comptes:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadComptes();
-  }, []);
+  // Charger les comptes avec cache
+  const { data: comptes = [], isLoading: loading } = useQuery({
+    queryKey: ['grand-livre-comptes'],
+    queryFn: () => getComptesWithSoldes({ avecMouvements: true }),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   // Charger le détail d'un compte
   useEffect(() => {

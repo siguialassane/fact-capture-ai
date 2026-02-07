@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { isSupabaseAvailable } from "../lib/supabase.js";
+import { isSupabaseAvailable, getSupabase } from "../lib/supabase.js";
 import { Errors } from "../middleware/error-handler.js";
 import { InvoiceRepository } from "../repositories/index.js";
 
@@ -208,5 +208,180 @@ invoiceRoutes.delete("/:id", async (c) => {
   } catch (error) {
     console.error("[Invoices] Delete error:", error);
     throw Errors.internal("Failed to delete invoice");
+  }
+});
+
+/**
+ * POST /api/invoices/cleanup-unvalidated
+ * Supprime les factures qui n'ont aucune écriture comptable validée
+ */
+invoiceRoutes.post("/cleanup-unvalidated", async (c) => {
+  if (!isSupabaseAvailable()) {
+    throw Errors.configurationError("Supabase is not configured");
+  }
+
+  console.log("[Invoices] Cleanup unvalidated invoices requested");
+
+  try {
+    const { data: allInvoices, error: allError } = await getSupabase()
+      .from("invoices")
+      .select("id");
+
+    if (allError) {
+      console.error("[Invoices] Cleanup fetch invoices error:", allError);
+      throw allError;
+    }
+
+    const allIds = (allInvoices || []).map((inv: { id: number }) => inv.id);
+    if (allIds.length === 0) {
+      return c.json({ success: true, deleted: 0 });
+    }
+
+    const { data: validatedEntries, error: validatedError } = await getSupabase()
+      .from("journal_entries")
+      .select("invoice_id")
+      .in("statut", ["valide", "validee"])
+      .not("invoice_id", "is", null);
+
+    if (validatedError) {
+      console.error("[Invoices] Cleanup fetch validated entries error:", validatedError);
+      throw validatedError;
+    }
+
+    const validatedIds = Array.from(
+      new Set(
+        (validatedEntries || [])
+          .map((row: { invoice_id: number | null }) => row.invoice_id)
+          .filter((id: number | null): id is number => id !== null)
+      )
+    );
+
+    const idsToDelete = allIds.filter((id) => !validatedIds.includes(id));
+
+    if (idsToDelete.length === 0) {
+      return c.json({ success: true, deleted: 0 });
+    }
+
+    const { data: entries, error: entriesError } = await getSupabase()
+      .from("journal_entries")
+      .select("id")
+      .in("invoice_id", idsToDelete);
+
+    if (entriesError) {
+      console.error("[Invoices] Cleanup fetch entries error:", entriesError);
+      throw entriesError;
+    }
+
+    const entryIds = (entries || []).map((e: { id: string }) => e.id);
+
+    if (entryIds.length > 0) {
+      const { error: linesError } = await getSupabase()
+        .from("journal_entry_lines")
+        .delete()
+        .in("entry_id", entryIds);
+
+      if (linesError) {
+        console.error("[Invoices] Cleanup delete lines error:", linesError);
+        throw linesError;
+      }
+
+      const { error: entriesDeleteError } = await getSupabase()
+        .from("journal_entries")
+        .delete()
+        .in("id", entryIds);
+
+      if (entriesDeleteError) {
+        console.error("[Invoices] Cleanup delete entries error:", entriesDeleteError);
+        throw entriesDeleteError;
+      }
+    }
+
+    const { error: invoicesDeleteError } = await getSupabase()
+      .from("invoices")
+      .delete()
+      .in("id", idsToDelete);
+
+    if (invoicesDeleteError) {
+      console.error("[Invoices] Cleanup delete invoices error:", invoicesDeleteError);
+      throw invoicesDeleteError;
+    }
+
+    return c.json({ success: true, deleted: idsToDelete.length });
+  } catch (error) {
+    console.error("[Invoices] Cleanup error:", error);
+    throw Errors.internal("Failed to cleanup unvalidated invoices");
+  }
+});
+
+/**
+ * POST /api/invoices/clear-tests
+ * Clear all invoices and related test data
+ */
+invoiceRoutes.post("/clear-tests", async (c) => {
+  if (!isSupabaseAvailable()) {
+    throw Errors.configurationError("Supabase is not configured");
+  }
+
+  console.log("[Invoices] Clear tests requested");
+
+  try {
+    const { data: entries } = await getSupabase()
+      .from("journal_entries")
+      .select("id")
+      .not("invoice_id", "is", null);
+
+    const entryIds = (entries || []).map((e: { id: string }) => e.id);
+
+    if (entryIds.length > 0) {
+      const { error: linesError } = await getSupabase()
+        .from("journal_entry_lines")
+        .delete()
+        .in("entry_id", entryIds);
+
+      if (linesError) {
+        console.error("[Invoices] Clear lines error:", linesError);
+        throw linesError;
+      }
+
+      const { error: entriesError } = await getSupabase()
+        .from("journal_entries")
+        .delete()
+        .in("id", entryIds);
+
+      if (entriesError) {
+        console.error("[Invoices] Clear entries error:", entriesError);
+        throw entriesError;
+      }
+    }
+
+    const { error: duplicatesError } = await getSupabase()
+      .from("invoice_duplicates")
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000");
+
+    if (duplicatesError) {
+      console.error("[Invoices] Clear duplicates error:", duplicatesError);
+      throw duplicatesError;
+    }
+
+    const { error: invoicesError } = await getSupabase()
+      .from("invoices")
+      .delete()
+      .neq("id", 0);
+
+    if (invoicesError) {
+      console.error("[Invoices] Clear invoices error:", invoicesError);
+      throw invoicesError;
+    }
+
+    console.log("[Invoices] Clear tests done");
+
+    return c.json({
+      success: true,
+      data: { cleared: true },
+    });
+  } catch (error) {
+    console.error("[Invoices] Clear tests error:", error);
+    throw Errors.internal("Failed to clear test data");
   }
 });

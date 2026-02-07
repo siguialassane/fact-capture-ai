@@ -100,10 +100,11 @@ async function getSoldesByClasse(
       compte_numero,
       debit,
       credit,
-      journal_entries!inner(date_piece)
+      journal_entries!inner(date_piece, statut)
     `)
     .gte("journal_entries.date_piece", dateDebut)
-    .lte("journal_entries.date_piece", dateFin);
+    .lte("journal_entries.date_piece", dateFin)
+    .in("journal_entries.statut", ["valide", "validee", "cloturee"]);
 
   if (error) {
     console.error("[États Financiers] Erreur récupération soldes:", error);

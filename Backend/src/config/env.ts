@@ -42,14 +42,14 @@ function getEnvVarOptional(key: string, defaultValue: string): string {
 export const config: Config = {
   // OpenRouter
   openrouterApiKey: getEnvVar("OPENROUTER_API_KEY", ""),
-  openrouterModel: getEnvVarOptional("OPENROUTER_MODEL", "qwen/qwen3-vl-32b-instruct"),
+  openrouterModel: getEnvVarOptional("OPENROUTER_MODEL", "qwen/qwen3-vl-235b-a22b-instruct"),
   openrouterBaseUrl: getEnvVarOptional("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
 
   // OpenRouter extended config (pour faciliter l'accès)
   openrouter: {
     apiKey: getEnvVar("OPENROUTER_API_KEY", ""),
-    model: getEnvVarOptional("OPENROUTER_MODEL", "qwen/qwen3-vl-32b-instruct"),
-    geminiModel: getEnvVarOptional("GEMINI_MODEL", "moonshotai/kimi-k2-thinking"),
+    model: getEnvVarOptional("OPENROUTER_MODEL", "qwen/qwen3-vl-235b-a22b-instruct"),
+    accountingModel: getEnvVarOptional("GEMINI_MODEL", "deepseek/deepseek-v3.2"),
     baseUrl: getEnvVarOptional("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
   },
 

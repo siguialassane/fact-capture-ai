@@ -97,6 +97,11 @@ export class AccountingClient extends BaseApiClient {
         return response.data || [];
     }
 
+    async getEntriesByInvoice(invoiceId: string): Promise<unknown[]> {
+        const response = await this.request<unknown[]>(`/api/accounting/entries?invoice_id=${invoiceId}`);
+        return response.data || [];
+    }
+
     async chatAboutEntry(
         message: string,
         entry: AccountingEntry

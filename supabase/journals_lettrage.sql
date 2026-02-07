@@ -114,6 +114,12 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_lines_lettre ON journal_entry_lines(lettre) WHERE lettre IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_lines_compte_tiers ON journal_entry_lines(numero_compte, tiers_code);
 
+-- Index pour les recherches de factures/écritures
+CREATE INDEX IF NOT EXISTS idx_journal_entries_invoice_id ON journal_entries(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_journal_entries_statut ON journal_entries(statut);
+CREATE INDEX IF NOT EXISTS idx_journal_entries_invoice_statut ON journal_entries(invoice_id, statut);
+CREATE INDEX IF NOT EXISTS idx_invoices_created_at ON invoices(created_at);
+
 -- ============================================================
 -- 4. TABLE D'HISTORIQUE DE LETTRAGE
 -- ============================================================
@@ -382,6 +388,7 @@ JOIN journal_entries je ON jel.ecriture_id = je.id
 LEFT JOIN plan_comptable pc ON jel.numero_compte = pc.numero_compte
 LEFT JOIN tiers t ON jel.tiers_code = t.code
 WHERE jel.numero_compte LIKE '4%'  -- Comptes de tiers uniquement
+    AND je.statut IN ('validee', 'cloturee')
 ORDER BY jel.numero_compte, je.date_piece, je.id;
 
 -- ============================================================

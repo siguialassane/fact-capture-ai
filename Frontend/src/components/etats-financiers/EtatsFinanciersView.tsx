@@ -53,12 +53,13 @@ import {
 import { AuditPanel } from "./AuditPanel";
 
 export function EtatsFinanciersView() {
+  const currentYear = new Date().getFullYear();
   const [activeTab, setActiveTab] = useState<"bilan" | "resultat" | "indicateurs">("bilan");
   const [bilan, setBilan] = useState<Bilan | null>(null);
   const [compteResultat, setCompteResultat] = useState<CompteResultat | null>(null);
   const [indicateurs, setIndicateurs] = useState<Indicateurs | null>(null);
   const [loading, setLoading] = useState(true);
-  const [exercice, setExercice] = useState<string>("2025");
+  const [exercice, setExercice] = useState<string>(currentYear.toString());
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(["actif-immobilise", "actif-circulant", "capitaux", "dettes", "charges", "produits"])
   );
@@ -133,14 +134,11 @@ export function EtatsFinanciersView() {
               <SelectValue placeholder="Exercice" />
             </SelectTrigger>
             <SelectContent>
-              {[0, 1, 2].map((i) => {
-                const year = new Date().getFullYear() - i;
-                return (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}
-                  </SelectItem>
-                );
-              })}
+              {[currentYear].map((year) => (
+                <SelectItem key={year} value={year.toString()}>
+                  {year}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 

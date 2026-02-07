@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { backendApi, type CompanyInfo } from "@/lib/api/backend-client";
+import { backendApi, clearTestInvoices, type CompanyInfo } from "@/lib/api/backend-client";
 
 export function CompanySettingsView() {
   const { toast } = useToast();
@@ -84,6 +84,31 @@ export function CompanySettingsView() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleClearTests = async () => {
+    if (!confirm("Voulez-vous vider toutes les factures et écritures de test ?")) {
+      return;
+    }
+
+    console.log("[Settings] Nettoyage des tests demandé");
+    try {
+      const ok = await clearTestInvoices();
+      if (!ok) {
+        throw new Error("Nettoyage non confirmé par l'API");
+      }
+      toast({
+        title: "Nettoyage effectué",
+        description: "Toutes les factures et écritures de test ont été supprimées.",
+      });
+    } catch (error) {
+      console.error("[Settings] Erreur nettoyage:", error);
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Impossible de nettoyer les tests",
+        variant: "destructive",
+      });
     }
   };
 
@@ -248,6 +273,9 @@ export function CompanySettingsView() {
         <Button onClick={handleSave} disabled={saving || loading || !hasName}>
           <Save className="h-4 w-4 mr-2" />
           {saving ? "Enregistrement..." : "Enregistrer"}
+        </Button>
+        <Button variant="outline" onClick={handleClearTests}>
+          Vider les tests
         </Button>
       </div>
     </div>

@@ -114,6 +114,10 @@ class BackendApiClient {
     this.invoices.updateInvoice(id, aiResult);
   deleteInvoice = (id: string) =>
     this.invoices.deleteInvoice(id);
+  clearTestInvoices = () =>
+    this.invoices.clearTestInvoices();
+  cleanupUnvalidatedInvoices = () =>
+    this.invoices.cleanupUnvalidatedInvoices();
 
   // ===========================================================================
   // ACCOUNTING - Déléguées au AccountingClient
@@ -144,6 +148,7 @@ class BackendApiClient {
 
   getDuplicates = () => this.accounting.getDuplicates();
   getTiers = (type?: "fournisseur" | "client") => this.accounting.getTiers(type);
+  getAccountingEntriesByInvoice = (invoiceId: string) => this.accounting.getEntriesByInvoice(invoiceId);
   chatAboutEntry = (message: string, entry: AccountingEntry) =>
     this.accounting.chatAboutEntry(message, entry);
 
@@ -289,6 +294,7 @@ export const getInvoice = backendApi.getInvoice;
 export const createInvoice = backendApi.createInvoice;
 export const updateInvoice = backendApi.updateInvoice;
 export const deleteInvoice = backendApi.deleteInvoice;
+export const clearTestInvoices = backendApi.clearTestInvoices;
 
 // Accounting
 export const generateAccountingEntry = backendApi.generateAccountingEntry;

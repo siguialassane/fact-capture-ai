@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Link2,
   Unlink,
@@ -52,11 +53,8 @@ import { useToast } from "@/hooks/use-toast";
 
 export function LettrageView() {
   const { toast } = useToast();
-  const [lignes, setLignes] = useState<LigneLettrable[]>([]);
-  const [propositions, setPropositions] = useState<PropositionLettrage[]>([]);
-  const [stats, setStats] = useState<LettrageStats | null>(null);
+  const queryClient = useQueryClient();
   const [selectedLignes, setSelectedLignes] = useState<Set<number>>(new Set());
-  const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   
   // Filtres
@@ -64,42 +62,39 @@ export function LettrageView() {
   const [statutFilter, setStatutFilter] = useState<"non_lettre" | "lettre" | "">("");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Charger les données
-  useEffect(() => {
-    loadData();
-  }, [compteFilter, statutFilter]);
+  // Charger les lignes avec cache
+  const { data: lignes = [], isLoading: loadingLignes } = useQuery({
+    queryKey: ['lignes-lettrage', compteFilter, statutFilter],
+    queryFn: () => getLignesALettrer({
+      compte_debut: compteFilter,
+      compte_fin: compteFilter + "Z",
+      statut: statutFilter || undefined,
+    }),
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
 
+  // Charger les stats avec cache
+  const { data: stats = null, isLoading: loadingStats } = useQuery({
+    queryKey: ['stats-lettrage', compteFilter],
+    queryFn: () => getStatistiquesLettrage(compteFilter),
+    staleTime: 2 * 60 * 1000,
+  });
+
+  // Charger les propositions avec cache
+  const { data: propositions = [] } = useQuery({
+    queryKey: ['propositions-lettrage', compteFilter],
+    queryFn: () => compteFilter.startsWith("4") ? getPropositionsLettrage(compteFilter) : Promise.resolve([]),
+    enabled: compteFilter.startsWith("4"),
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const loading = loadingLignes || loadingStats;
+
+  // Fonction pour rafraîchir les données
   async function loadData() {
-    setLoading(true);
-    try {
-      const [lignesData, statsData] = await Promise.all([
-        getLignesALettrer({
-          compte_debut: compteFilter,
-          compte_fin: compteFilter + "Z",
-          statut: statutFilter || undefined,
-        }),
-        getStatistiquesLettrage(compteFilter),
-      ]);
-      setLignes(lignesData);
-      setStats(statsData);
-
-      // Charger les propositions pour les comptes de tiers
-      if (compteFilter.startsWith("4")) {
-        const propsData = await getPropositionsLettrage(compteFilter);
-        setPropositions(propsData);
-      } else {
-        setPropositions([]);
-      }
-    } catch (error) {
-      console.error("Erreur chargement:", error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de charger les données",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    queryClient.invalidateQueries({ queryKey: ['lignes-lettrage'] });
+    queryClient.invalidateQueries({ queryKey: ['stats-lettrage'] });
+    queryClient.invalidateQueries({ queryKey: ['propositions-lettrage'] });
   }
 
   // Filtrer les lignes par recherche

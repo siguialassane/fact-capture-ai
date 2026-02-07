@@ -1,6 +1,6 @@
 {
-  "name": "Scanner de Factures",
-  "short_name": "ScanFacture",
+  "name": "EXIAS COMPTA",
+  "short_name": "EXIAS COMPTA",
   "description": "Scannez et analysez vos factures avec l'IA",
   "start_url": "/",
   "display": "standalone",

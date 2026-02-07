@@ -122,4 +122,23 @@ export class InvoicesClient extends BaseApiClient {
 
         return response.success;
     }
+
+    async clearTestInvoices(): Promise<boolean> {
+        const response = await this.request(`/api/invoices/clear-tests`, {
+            method: "POST",
+        });
+
+        return response.success;
+    }
+
+    async cleanupUnvalidatedInvoices(): Promise<{ success: boolean; deleted: number }> {
+        const response = await this.request<{ deleted: number }>(`/api/invoices/cleanup-unvalidated`, {
+            method: "POST",
+        });
+
+        return {
+            success: response.success,
+            deleted: (response.data as any)?.deleted ?? 0,
+        };
+    }
 }

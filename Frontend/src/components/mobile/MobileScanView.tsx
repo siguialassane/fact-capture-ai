@@ -85,19 +85,19 @@ export function MobileScanView() {
     try {
       setStep("analyzing");
       setAnalyzingMessage("Conversion du PDF...");
-      
+
       const base64 = await fileToBase64(file);
-      
+
       setAnalyzingMessage("Analyse par l'IA en cours...");
-      
+
       const aiResult = await analyzePDFDocument(base64);
-      
+
       if (aiResult) {
         setAnalyzingMessage("Envoi vers le serveur...");
-        
+
         // Save to Supabase with sessionId if available
         await saveInvoiceToSupabase(base64, aiResult, activeSession?.id);
-        
+
         if (aiResult.is_invoice === false) {
           toast({
             title: "Document non reconnu",
@@ -156,7 +156,7 @@ export function MobileScanView() {
         <div className="flex flex-col items-center justify-center min-h-screen p-6 animate-in w-full max-w-md mx-auto">
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-foreground mb-2">
-              Scanner de Factures
+              EXIAS COMPTA
             </h1>
             <p className="text-muted-foreground">
               Numérisez et analysez vos factures

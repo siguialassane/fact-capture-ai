@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
     TrendingUp,
     TrendingDown,
@@ -118,34 +119,30 @@ function MetricCard({
 }
 
 export function StatsDashboard() {
-    const [exercice, setExercice] = useState<string>("2025");
-    const [loading, setLoading] = useState(true);
-    const [data, setData] = useState<{
-        bilan: Bilan | null;
-        resultat: CompteResultat | null;
-        indicateurs: Indicateurs | null;
-    }>({ bilan: null, resultat: null, indicateurs: null });
+    const [exercice, setExercice] = useState<string>("2026");
     const [showDetailDialog, setShowDetailDialog] = useState(false);
     const [detailContent, setDetailContent] = useState<{title: string; content: JSX.Element} | null>(null);
 
-    useEffect(() => {
-        async function load() {
-            setLoading(true);
-            try {
-                const [bilan, resultat, indicateurs] = await Promise.all([
-                    getBilan(exercice),
-                    getCompteResultat(exercice),
-                    getIndicateursFinanciers(exercice)
-                ]);
-                setData({ bilan, resultat, indicateurs });
-            } catch (e) {
-                console.error("Error loading dashboard stats", e);
-            } finally {
-                setLoading(false);
-            }
-        }
-        load();
-    }, [exercice]);
+    // Utiliser React Query avec cache pour éviter les rechargements inutiles
+    const { data: bilan, isLoading: loadingBilan } = useQuery({
+        queryKey: ['bilan', exercice],
+        queryFn: () => getBilan(exercice),
+        staleTime: 10 * 60 * 1000, // 10 minutes
+    });
+
+    const { data: resultat, isLoading: loadingResultat } = useQuery({
+        queryKey: ['compte-resultat', exercice],
+        queryFn: () => getCompteResultat(exercice),
+        staleTime: 10 * 60 * 1000,
+    });
+
+    const { data: indicateurs, isLoading: loadingIndicateurs } = useQuery({
+        queryKey: ['indicateurs', exercice],
+        queryFn: () => getIndicateursFinanciers(exercice),
+        staleTime: 10 * 60 * 1000,
+    });
+
+    const loading = loadingBilan || loadingResultat || loadingIndicateurs;
 
     if (loading) {
         return (
@@ -154,8 +151,6 @@ export function StatsDashboard() {
             </div>
         );
     }
-
-    const { bilan, resultat, indicateurs} = data;
 
     const formatMontant = (montant: number) => {
         return montant.toLocaleString("fr-FR", {

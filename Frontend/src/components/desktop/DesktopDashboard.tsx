@@ -1,11 +1,8 @@
 import { useEffect, useCallback } from "react";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { StatsDashboard } from "./StatsDashboard";
-import { DocumentViewer } from "./DocumentViewer";
-import { InvoiceDataPanel } from "./InvoiceDataPanel";
-import { AccountingEntryView } from "@/components/accounting";
-import { InvoiceArticlesList } from "@/components/accounting/InvoiceArticlesList";
-import { PaymentStatusSelector } from "@/components/desktop/PaymentStatusSelector"; // Restauré
+import { DashboardLeftPane } from "./DashboardLeftPane";
+import { DashboardRightPane } from "./DashboardRightPane";
 import { JournauxView } from "@/components/journals";
 import { GrandLivreView } from "@/components/grand-livre";
 import { LettrageView } from "@/components/lettrage";
@@ -471,77 +468,49 @@ export function DesktopDashboard() {
       ) : (
         <div className="flex-1 flex">
           <div className="flex-1 border-r border-border">
-            {activeMenuItem === "accounting" ? (
-              // LOGIQUE D'AFFICHAGE DU SELECTEUR
-              showPaymentSelector && invoiceData ? (
-                <div className="h-full overflow-auto p-6 bg-gradient-to-br from-slate-50 to-violet-50 flex items-center justify-center">
-                  <div className="w-full max-w-xl">
-                    <PaymentStatusSelector
-                      suggestedStatus={(invoiceData as any).statut_paiement_suggere || "inconnu"}
-                      paymentIndices={(invoiceData as any).indices_paiement || []}
-                      paymentMode={(invoiceData as any).mode_paiement}
-                      totalAmount={(() => {
-                        // Helper pour choper le montant
-                        const mt = (invoiceData as any).montant_total;
-                        if (typeof mt === 'number') return mt;
-                        if (typeof mt === 'string') return Number(mt.replace(/[^0-9.,]/g, '').replace(',', '.')) || undefined;
-                        return undefined;
-                      })()}
-                      onConfirm={handlePaymentStatusConfirm}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <AccountingEntryView
-                  entry={accountingEntry}
-                  status={accountingStatus}
-                  reasoning={accountingReasoning}
-                  suggestions={accountingSuggestions}
-                  invoiceData={invoiceData || undefined}
-                  confirmedStatus={confirmedPaymentStatus}
-                  confirmedPartialAmount={confirmedPartialAmount}
-                  onRefine={handleRefineAccounting}
-                  onSave={handleSaveAccounting}
-                  onChat={handleAccountingChat}
-                  isSaving={isSavingAccounting}
-                  isSaved={isAccountingSaved}
-                  onRegenerate={() => setShowPaymentSelector(true)} // Retour au sélecteur
-                  onRegenerateWithStatus={handleRegenerateWithNewStatus}
-                />
-              )
-            ) : (
-              <InvoiceDataPanel
-                status={status}
-                data={invoiceData}
-                imageUrl={invoice?.image}
-                onDataChange={updateData}
-                onArticleChange={updateArticle}
-                onNewInvoice={handleNewInvoice}
-                onFileUpload={handleFileUpload}
-                onRequestPhotoFromPWA={requestPhotoFromMobile}
-                isWaitingForPWA={isWaitingForPWA}
-                onSendChatMessage={status === "complete" && invoiceData ? handleChatMessage : undefined}
-                onRegenerateChatData={handleRegenerateData}
-                isChatLoading={isChatLoading}
-                chatMessages={chatMessages}
-                setChatMessages={setChatMessages}
-              />
-            )}
+            <DashboardLeftPane
+              activeMenuItem={activeMenuItem}
+              showPaymentSelector={showPaymentSelector}
+              invoiceData={invoiceData}
+              accountingEntry={accountingEntry}
+              accountingStatus={accountingStatus}
+              accountingReasoning={accountingReasoning}
+              accountingSuggestions={accountingSuggestions}
+              confirmedPaymentStatus={confirmedPaymentStatus}
+              confirmedPartialAmount={confirmedPartialAmount}
+              onPaymentConfirm={handlePaymentStatusConfirm}
+              onRegeneratePaymentStatus={() => setShowPaymentSelector(true)}
+              onRegenerateWithStatus={handleRegenerateWithNewStatus}
+              onRefine={handleRefineAccounting}
+              onSave={handleSaveAccounting}
+              onChat={handleAccountingChat}
+              isSaving={isSavingAccounting}
+              isSaved={isAccountingSaved}
+              status={status}
+              imageUrl={invoice?.image}
+              onDataChange={updateData}
+              onArticleChange={updateArticle}
+              onNewInvoice={handleNewInvoice}
+              onFileUpload={handleFileUpload}
+              onRequestPhotoFromPWA={requestPhotoFromMobile}
+              isWaitingForPWA={isWaitingForPWA}
+              onSendChatMessage={status === "complete" && invoiceData ? handleChatMessage : undefined}
+              onRegenerateChatData={handleRegenerateData}
+              isChatLoading={isChatLoading}
+              chatMessages={chatMessages}
+              setChatMessages={setChatMessages}
+            />
           </div>
 
           <div className="w-[45%]">
-            {activeMenuItem === "accounting" ? (
-              <InvoiceArticlesList
-                invoiceData={invoiceData || undefined}
-                onArticleChange={updateArticle}
-              />
-            ) : (
-              <DocumentViewer
-                imageUrl={pdfUrl ? null : (invoice?.image || null)}
-                pdfUrl={pdfUrl}
-                status={status}
-              />
-            )}
+            <DashboardRightPane
+              activeMenuItem={activeMenuItem}
+              invoiceData={invoiceData}
+              onArticleChange={updateArticle}
+              pdfUrl={pdfUrl}
+              imageUrl={invoice?.image}
+              status={status}
+            />
           </div>
         </div>
       )}

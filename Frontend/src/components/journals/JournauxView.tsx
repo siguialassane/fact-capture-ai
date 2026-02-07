@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useCallback, DragEvent } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
   Calendar,
@@ -43,12 +44,8 @@ import { JournalCorrectionDialog } from "./JournalCorrectionDialog";
 import { type DragData, type CorrectionConfirmation } from "./journal-types";
 
 export function JournauxView() {
-  const [journaux, setJournaux] = useState<JournalConfig[]>([]);
-  const [summaries, setSummaries] = useState<JournalSummary[]>([]);
+  const queryClient = useQueryClient();
   const [selectedJournal, setSelectedJournal] = useState<JournalCode | null>(null);
-  const [entries, setEntries] = useState<JournalEntryRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingEntries, setLoadingEntries] = useState(false);
   const [expandedEntry, setExpandedEntry] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [periode, setPeriode] = useState<string>("all");
@@ -67,48 +64,40 @@ export function JournauxView() {
     toJournal: JournalCode | null;
   }>({ open: false, entry: null, fromJournal: null, toJournal: null });
 
-  // Charger les journaux et résumés
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [journauxData, summaryData] = await Promise.all([
-        getJournaux(),
-        getJournalSummary(periode),
-      ]);
-      setJournaux(journauxData);
-      setSummaries(summaryData);
-    } catch (error) {
-      console.error("Erreur chargement journaux:", error);
-      toast.error("Erreur de chargement des journaux");
-    } finally {
-      setLoading(false);
-    }
-  }, [periode]);
+  // Charger les journaux avec cache
+  const { data: journaux = [], isLoading: loadingJournaux } = useQuery({
+    queryKey: ['journaux'],
+    queryFn: getJournaux,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
 
+  // Charger les résumés avec cache
+  const { data: summaries = [], isLoading: loadingSummaries } = useQuery({
+    queryKey: ['journal-summaries', periode],
+    queryFn: () => getJournalSummary(periode),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Charger les écritures d'un journal avec cache
+  const { data: entriesData, isLoading: loadingEntries } = useQuery({
+    queryKey: ['journal-entries', selectedJournal],
+    queryFn: () => selectedJournal ? getJournalEntries(selectedJournal, { limit: 100 }) : Promise.resolve({ ecritures: [], total: 0 }),
+    enabled: !!selectedJournal,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+
+  const entries = entriesData?.ecritures || [];
+  const loading = loadingJournaux || loadingSummaries;
+
+  // Fonction pour rafraîchir les données
+  const loadData = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['journaux'] });
+    queryClient.invalidateQueries({ queryKey: ['journal-summaries'] });
+  }, [queryClient]);
+
+  // Réinitialiser l'entrée développée quand on change de journal
   useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  // Charger les écritures d'un journal
-  useEffect(() => {
-    async function loadEntries() {
-      if (!selectedJournal) {
-        setEntries([]);
-        return;
-      }
-
-      setLoadingEntries(true);
-      setExpandedEntry(null);
-      try {
-        const result = await getJournalEntries(selectedJournal, { limit: 100 });
-        setEntries(result.ecritures);
-      } catch (error) {
-        console.error("Erreur chargement écritures:", error);
-      } finally {
-        setLoadingEntries(false);
-      }
-    }
-    loadEntries();
+    setExpandedEntry(null);
   }, [selectedJournal]);
 
   const toggleExpand = (id: string, e: React.MouseEvent) => {
@@ -145,6 +134,9 @@ export function JournauxView() {
       e.dataTransfer.dropEffect = "none";
     }
   };
+
+
+  
 
   const handleDragLeave = () => {
     setDropTarget(null);

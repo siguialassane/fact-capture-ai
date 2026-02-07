@@ -60,7 +60,7 @@ export function DashboardSidebar({ activeItem = "dashboard", onItemClick }: Side
             "font-semibold text-foreground whitespace-nowrap transition-all duration-300",
             isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden"
           )}>
-            ScanFacture
+            EXIAS COMPTA
           </span>
         </div>
       </div>
