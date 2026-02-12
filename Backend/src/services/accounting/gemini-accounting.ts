@@ -12,8 +12,16 @@ import type { InvoiceAIResult } from "../ai/types";
 
 // Configuration OpenRouter
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const ACCOUNTING_MODEL = process.env.GEMINI_MODEL || "deepseek/deepseek-v3.2";
+const DEFAULT_ACCOUNTING_MODEL = "google/gemini-2.5-flash"; // Par défaut: Gemini 2.5 Flash
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+
+// Modèles IA disponibles pour la comptabilité
+export const AVAILABLE_MODELS = {
+  GEMINI_2_5_FLASH: "google/gemini-2.5-flash",
+  GEMINI_3_FLASH: "google/gemini-3-flash-preview",
+} as const;
+
+export type AccountingModel = typeof AVAILABLE_MODELS[keyof typeof AVAILABLE_MODELS];
 
 /**
  * Structure d'une ligne d'écriture comptable
@@ -506,7 +514,11 @@ ${clients.map(c => `- ${c.code}: ${c.nom} (compte: ${c.numero_compte_defaut || '
 export async function generateAccountingEntry(
   invoiceData: InvoiceAIResult,
   dbContext?: AccountingContext,
-  options?: { statutPaiement?: "paye" | "non_paye" | "partiel" | "inconnu"; montantPartiel?: number }
+  options?: { 
+    statutPaiement?: "paye" | "non_paye" | "partiel" | "inconnu"; 
+    montantPartiel?: number;
+    model?: AccountingModel; // Modèle IA à utiliser
+  }
 ): Promise<AccountingResult> {
   if (!OPENROUTER_API_KEY) {
     return {
@@ -516,9 +528,10 @@ export async function generateAccountingEntry(
   }
 
   const startTime = Date.now();
+  const selectedModel = options?.model || DEFAULT_ACCOUNTING_MODEL;
 
   try {
-    console.log("[Gemini Accounting] Génération de l'écriture comptable...");
+    console.log(`[Gemini Accounting] Génération de l'écriture comptable avec ${selectedModel}...`);
 
     // Premier appel avec reasoning
     const response = await fetch(OPENROUTER_URL, {
@@ -530,7 +543,7 @@ export async function generateAccountingEntry(
         "X-Title": "Fact Capture AI - Accounting",
       },
       body: JSON.stringify({
-        model: ACCOUNTING_MODEL,
+        model: selectedModel,
         messages: [
           {
             role: "system",
@@ -651,7 +664,8 @@ export async function generateAccountingEntry(
 export async function refineAccountingEntry(
   previousEntry: JournalEntry,
   userFeedback: string,
-  originalInvoiceData: InvoiceAIResult
+  originalInvoiceData: InvoiceAIResult,
+  model?: AccountingModel
 ): Promise<AccountingResult> {
   if (!OPENROUTER_API_KEY) {
     return {
@@ -661,6 +675,9 @@ export async function refineAccountingEntry(
   }
 
   const startTime = Date.now();
+  const selectedModel = model || DEFAULT_ACCOUNTING_MODEL;
+
+  console.log(`[Gemini Accounting - Refine] Utilisation du modèle: ${selectedModel}`);
 
   try {
     // Messages avec historique pour le multi-turn reasoning
@@ -693,7 +710,7 @@ export async function refineAccountingEntry(
         "X-Title": "Fact Capture AI - Accounting Refinement",
       },
       body: JSON.stringify({
-        model: ACCOUNTING_MODEL,
+        model: selectedModel,
         messages,
         reasoning: { enabled: true },
         temperature: 0.1,

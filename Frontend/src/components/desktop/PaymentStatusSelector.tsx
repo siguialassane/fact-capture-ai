@@ -6,7 +6,8 @@ import {
     HelpCircle,
     CheckCircle2,
     Clock,
-    PieChart
+    PieChart,
+    Brain
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -14,6 +15,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { AIModelSelectorDialog, useAIModel, getModelDisplayName } from "@/components/accounting/AIModelSelectorDialog";
 import type { StatutPaiement } from "@/lib/api/backend-client";
 
 interface PaymentStatusSelectorProps {
@@ -34,6 +36,8 @@ export function PaymentStatusSelector({
 
     const [selectedStatus, setSelectedStatus] = useState<StatutPaiement | undefined>(undefined);
     const [partialAmount, setPartialAmount] = useState<string>("");
+    const [isModelDialogOpen, setIsModelDialogOpen] = useState(false);
+    const currentModel = useAIModel();
 
     const handleConfirm = () => {
         if (selectedStatus) {
@@ -159,6 +163,29 @@ export function PaymentStatusSelector({
                     </div>
                 )}
 
+                {/* Sélecteur de modèle IA */}
+                <div className="bg-violet-50 border border-violet-200 rounded-lg p-4 animate-in fade-in">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-violet-100 rounded-lg">
+                                <Brain className="h-5 w-5 text-violet-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold text-slate-800">Modèle d'analyse IA</p>
+                                <p className="text-xs text-slate-600 font-medium">{getModelDisplayName(currentModel)}</p>
+                            </div>
+                        </div>
+                        <Button
+                            onClick={() => setIsModelDialogOpen(true)}
+                            variant="outline"
+                            size="sm"
+                            className="border-violet-300 hover:bg-violet-100 text-violet-700 font-medium"
+                        >
+                            Changer
+                        </Button>
+                    </div>
+                </div>
+
                 <Button
                     onClick={handleConfirm}
                     disabled={!selectedStatus || (selectedStatus === 'partiel' && !partialAmount)}
@@ -167,6 +194,12 @@ export function PaymentStatusSelector({
                     Lancer l'analyse comptable
                     <CreditCard className="ml-2 h-5 w-5" />
                 </Button>
+
+            {/* Modal de sélection du modèle IA */}
+            <AIModelSelectorDialog 
+                open={isModelDialogOpen}
+                onOpenChange={setIsModelDialogOpen}
+            />
 
             </CardContent>
         </Card>

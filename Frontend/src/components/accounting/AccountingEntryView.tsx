@@ -20,7 +20,8 @@ import {
   User,
   FileText,
   Clock,
-  PieChart
+  PieChart,
+  Brain,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +37,7 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { AIModelSelectorDialog, useAIModel, getModelDisplayName } from "./AIModelSelectorDialog";
 import type { JournalEntry, AccountingStatus, StatutPaiement } from "@/lib/api/backend-client";
 import type { FlexibleInvoiceAIResult } from "@/lib/openrouter";
 
@@ -74,6 +76,10 @@ export function AccountingEntryView({
   // State pour le changement de statut
   const [newStatus, setNewStatus] = useState<StatutPaiement | undefined>(confirmedStatus);
   const [newPartialAmount, setNewPartialAmount] = useState<number | undefined>(confirmedPartialAmount);
+  
+  // State pour le modal de sélection IA
+  const [isModelDialogOpen, setIsModelDialogOpen] = useState(false);
+  const currentModel = useAIModel();
 
   // Mettre à jour le state local si la prop change
   useEffect(() => {
@@ -180,7 +186,19 @@ export function AccountingEntryView({
           </div>
         </div>
 
+        {/* Actions - Boutons à droite */}
         <div className="flex items-center gap-3">
+          {/* Bouton Modèle IA */}
+          <Button
+            onClick={() => setIsModelDialogOpen(true)}
+            variant="outline"
+            size="lg"
+            className="shadow-sm border-violet-200 hover:bg-violet-50 text-violet-700 font-medium"
+          >
+            <Brain className="h-4 w-4 mr-2" />
+            {getModelDisplayName(currentModel)}
+          </Button>
+
           <Button
             onClick={onSave}
             disabled={isSaving || isSaved}
@@ -198,6 +216,12 @@ export function AccountingEntryView({
           </Button>
         </div>
       </div>
+
+      {/* Modal de sélection du modèle IA */}
+      <AIModelSelectorDialog 
+        open={isModelDialogOpen}
+        onOpenChange={setIsModelDialogOpen}
+      />
 
       {/* Main Content - SCROLLABLE */}
       <div className="flex-1 overflow-y-auto p-8 scroll-smooth">

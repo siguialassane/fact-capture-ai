@@ -8,7 +8,8 @@ import { GrandLivreView } from "@/components/grand-livre";
 import { LettrageView } from "@/components/lettrage";
 import { EtatsFinanciersView } from "@/components/etats-financiers";
 import { InvoicesListView } from "@/components/invoices/InvoicesListView";
-import { CompanySettingsView } from "@/components/settings/CompanySettingsView";
+import { SettingsView } from "@/components/settings/SettingsView";
+import { AnalysisTimer } from "@/components/ui/AnalysisTimer";
 import { getLatestInvoice } from "@/lib/db";
 import { isOpenRouterConfigured, type FlexibleInvoiceAIResult } from "@/lib/openrouter";
 import {
@@ -43,6 +44,11 @@ export function DesktopDashboard() {
   const [isSavingAccounting, setIsSavingAccounting] = useState(false);
   const [isAccountingSaved, setIsAccountingSaved] = useState(false);
 
+  // Gemini timing state (séparé de Qwen)
+  const [geminiStartTime, setGeminiStartTime] = useState<number | null>(null);
+  const [geminiTiming, setGeminiTiming] = useState<number | undefined>(undefined);
+  const [isGeneratingAccounting, setIsGeneratingAccounting] = useState(false);
+
   // Payment Selection State (Workflow Restauré)
   const [showPaymentSelector, setShowPaymentSelector] = useState(false);
   const [confirmedPaymentStatus, setConfirmedPaymentStatus] = useState<StatutPaiement | undefined>(undefined);
@@ -58,6 +64,9 @@ export function DesktopDashboard() {
     analyzeFile,
     updateData,
     updateArticle,
+    analysisPhase,
+    analysisStartTime,
+    analysisTimings,
     resetAnalysis,
   } = useInvoiceAnalysis();
 
@@ -96,6 +105,11 @@ export function DesktopDashboard() {
     setAccountingStatus("generating");
     setShowPaymentSelector(false); // Masquer le sélecteur une fois lancé
 
+    // Démarrer le chronomètre Gemini
+    setIsGeneratingAccounting(true);
+    setGeminiStartTime(Date.now());
+    setGeminiTiming(undefined);
+
     try {
       // On passe le statut confirmé à l'API (si supporté par backend) ou au moins on l'utilise pour le contexte local
       const result = await generateAccountingEntry(
@@ -103,6 +117,10 @@ export function DesktopDashboard() {
         statutPaiement, // Argument potentiellement à réintégrer dans l'API front
         montantPartiel
       );
+
+      const duration = result.data.reasoning?.duration_ms || (Date.now() - (geminiStartTime || Date.now()));
+      setGeminiTiming(duration);
+      setIsGeneratingAccounting(false);
 
       if (result.success && result.data) {
         setAccountingEntry(result.data.ecriture);
@@ -116,7 +134,7 @@ export function DesktopDashboard() {
 
         toast({
           title: "Écriture comptable générée",
-          description: "Consultez l'onglet 'Comptabilisation' pour voir le résultat.",
+          description: `Générée avec Gemini en ${(duration / 1000).toFixed(1)}s. Consultez l'onglet 'Comptabilisation'.`,
         });
       } else {
         setAccountingStatus("error");
@@ -130,8 +148,9 @@ export function DesktopDashboard() {
     } catch (error) {
       console.error("[Accounting] Erreur:", error);
       setAccountingStatus("error");
+      setIsGeneratingAccounting(false);
     }
-  }, [toast]);
+  }, [toast, geminiStartTime]);
 
   // RESTAURÉ : Callback de confirmation depuis le sélecteur
   const handlePaymentStatusConfirm = useCallback((status: StatutPaiement, partialAmount?: number) => {
@@ -283,25 +302,34 @@ export function DesktopDashboard() {
       setShowPaymentSelector(false);
       setConfirmedPaymentStatus(undefined);
 
-      // Update PDF URL for native display
-      if (file.type === "application/pdf") {
+      // Convertir le fichier en base64 IMMÉDIATEMENT
+      const base64 = await new Promise<string>((resolve) => {
         const reader = new FileReader();
-        reader.onload = () => setPdfUrl(reader.result as string);
+        reader.onload = () => resolve(reader.result as string);
         reader.readAsDataURL(file);
+      });
+
+      // Créer l'invoice AVANT l'analyse pour afficher le document immédiatement
+      setInvoice({
+        id: Date.now(),
+        image: base64,
+        createdAt: new Date(),
+        analyzed: false, // Pas encore analysé
+      });
+
+      // Définir pdfUrl pour les PDF (pour DocumentViewer)
+      if (file.type === "application/pdf") {
+        setPdfUrl(base64);
       } else {
         setPdfUrl(null);
       }
 
-      // Analyze the file
-      const { base64, result } = await analyzeFile(file);
+      // Lancer l'analyse MAINTENANT (pendant que le document est visible)
+      const { result } = await analyzeFile(file);
 
-      if (base64) {
-        setInvoice({
-          id: Date.now(),
-          image: base64,
-          createdAt: new Date(),
-          analyzed: Boolean(result),
-        });
+      // Mettre à jour l'invoice comme analysé
+      if (result) {
+        setInvoice((prev) => prev ? { ...prev, analyzed: true } : prev);
       }
 
       // STOP AUTO-GENERATE -> Trigger Selection
@@ -450,6 +478,30 @@ export function DesktopDashboard() {
 
   return (
     <div className="h-screen bg-background flex overflow-hidden">
+      {/* Chronomètre Qwen - Analyse facture uniquement */}
+      <AnalysisTimer
+        isAnalyzing={status === "analyzing"}
+        startTime={analysisStartTime || undefined}
+        phase="ocr"
+        finalTimes={
+          analysisTimings?.qwen
+            ? { qwen: analysisTimings.qwen }
+            : undefined
+        }
+      />
+
+      {/* Chronomètre Gemini - Génération comptable uniquement */}
+      <AnalysisTimer
+        isAnalyzing={isGeneratingAccounting}
+        startTime={geminiStartTime || undefined}
+        phase="accounting"
+        finalTimes={
+          geminiTiming
+            ? { gemini: geminiTiming }
+            : undefined
+        }
+      />
+
       <DashboardSidebar
         activeItem={activeMenuItem}
         onItemClick={setActiveMenuItem}
@@ -463,7 +515,7 @@ export function DesktopDashboard() {
           {activeMenuItem === "lettrage" && <LettrageView />}
           {activeMenuItem === "etats-financiers" && <EtatsFinanciersView />}
           {activeMenuItem === "invoices" && <InvoicesListView />}
-          {activeMenuItem === "settings" && <CompanySettingsView />}
+          {activeMenuItem === "settings" && <SettingsView />}
         </div>
       ) : (
         <div className="flex-1 flex">

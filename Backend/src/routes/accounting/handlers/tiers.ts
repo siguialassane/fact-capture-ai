@@ -12,9 +12,9 @@ export function registerTiersRoutes(accounting: Hono) {
 
       let query = getSupabase()
         .from("tiers")
-        .select("id, code, nom, type_tiers, numero_compte_defaut, adresse, ville, pays")
-        .eq("actif", true)
-        .order("nom");
+        .select("id, code, raison_sociale as nom, type_tiers, compte_comptable as numero_compte_defaut, adresse, ville, pays")
+        .eq("est_actif", true)
+        .order("raison_sociale");
 
       if (type) {
         query = query.eq("type_tiers", type);

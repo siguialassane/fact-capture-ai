@@ -13,9 +13,9 @@ export function registerGenerateRoutes(accounting: Hono) {
     "/generate",
     zValidator("json", GenerateEntrySchema),
     async (c) => {
-      const { invoiceData, invoiceId, statutPaiement, montantPartiel } = c.req.valid("json");
+      const { invoiceData, invoiceId, statutPaiement, montantPartiel, model } = c.req.valid("json");
 
-      console.log("[Accounting API] Génération d'écriture comptable...");
+      console.log(`[Accounting API] Génération d'écriture comptable avec ${model || 'modèle par défaut'}...`);
 
       try {
         const accountingContext = await getAccountingContext();
@@ -26,6 +26,7 @@ export function registerGenerateRoutes(accounting: Hono) {
           {
             statutPaiement,
             montantPartiel,
+            model: model as any,
           }
         );
 

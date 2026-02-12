@@ -125,14 +125,16 @@ class BackendApiClient {
   generateAccountingEntry = (
     invoiceData: Record<string, unknown>,
     statutPaiement?: StatutPaiement,
-    montantPartiel?: number
-  ) => this.accounting.generateAccountingEntry(invoiceData, statutPaiement, montantPartiel);
+    montantPartiel?: number,
+    model?: "google/gemini-2.5-flash" | "google/gemini-3-flash-preview"
+  ) => this.accounting.generateAccountingEntry(invoiceData, statutPaiement, montantPartiel, model);
 
   refineAccountingEntry = (
     previousEntry: AccountingEntry,
     userFeedback: string,
-    originalInvoiceData: Record<string, unknown>
-  ) => this.accounting.refineAccountingEntry(previousEntry, userFeedback, originalInvoiceData);
+    originalInvoiceData: Record<string, unknown>,
+    model?: "google/gemini-2.5-flash" | "google/gemini-3-flash-preview"
+  ) => this.accounting.refineAccountingEntry(previousEntry, userFeedback, originalInvoiceData, model);
 
   getPlanComptable = () => this.accounting.getPlanComptable();
 

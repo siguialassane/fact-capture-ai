@@ -22,6 +22,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AnalysisTimer } from "@/components/ui/AnalysisTimer";
 import {
   Collapsible,
   CollapsibleContent,
@@ -42,13 +43,18 @@ export function AuditPanel({ exercice }: AuditPanelProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedAnomalies, setExpandedAnomalies] = useState<Set<number>>(new Set());
+  const [auditStartTime, setAuditStartTime] = useState<number | null>(null);
+  const [claudeTiming, setClaudeTiming] = useState<number | undefined>(undefined);
 
   const runAudit = async () => {
     setLoading(true);
     setError(null);
+    setAuditStartTime(Date.now());
+    setClaudeTiming(undefined);
     try {
       const result = await auditEtatsFinanciers(exercice);
       setAuditResult(result);
+      setClaudeTiming(result.duree_ms);
       // Expand all anomalies by default
       if (result.anomalies.length > 0) {
         setExpandedAnomalies(new Set(result.anomalies.map((_, i) => i)));
@@ -108,8 +114,18 @@ export function AuditPanel({ exercice }: AuditPanelProps) {
   };
 
   return (
-    <Card className="mt-6">
-      <CardHeader className="pb-3">
+    <>
+      {/* Chronomètre Claude pour l'audit */}
+      <AnalysisTimer
+        isAnalyzing={loading}
+        startTime={auditStartTime || undefined}
+        phase={loading ? "audit" : "complete"}
+        finalTimes={claudeTiming ? { claude: claudeTiming } : undefined}
+        showClaude={true}
+      />
+
+      <Card className="mt-6">
+        <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-indigo-500" />
@@ -182,7 +198,7 @@ export function AuditPanel({ exercice }: AuditPanelProps) {
                   <p className="text-sm text-slate-600">{auditResult.resume_audit}</p>
                   {auditResult.duree_ms && (
                     <p className="text-xs text-slate-400 mt-2">
-                      Audit réalisé en {(auditResult.duree_ms / 1000).toFixed(1)}s
+                      ⚡ Audit Claude réalisé en {(auditResult.duree_ms / 1000).toFixed(1)}s
                     </p>
                   )}
                 </div>
@@ -383,5 +399,6 @@ export function AuditPanel({ exercice }: AuditPanelProps) {
         )}
       </CardContent>
     </Card>
+    </>
   );
 }

@@ -7,16 +7,33 @@
 import { BaseApiClient } from "./base-client";
 import type { AccountingEntry, AccountingResult, StatutPaiement, SaveResult } from "../types";
 
+export type AIModel = "google/gemini-2.5-flash" | "google/gemini-3-flash-preview";
+
 export class AccountingClient extends BaseApiClient {
+
+    /**
+     * Récupère le modèle IA sélectionné depuis localStorage
+     */
+    private getSelectedModel(): AIModel {
+        const stored = localStorage.getItem("exia-ai-model");
+        return (stored as AIModel) || "google/gemini-2.5-flash";
+    }
 
     async generateAccountingEntry(
         invoiceData: Record<string, unknown>,
         statutPaiement?: StatutPaiement,
-        montantPartiel?: number
+        montantPartiel?: number,
+        model?: AIModel
     ): Promise<AccountingResult> {
+        const selectedModel = model || this.getSelectedModel();
         const response = await this.request<AccountingResult["data"]>("/api/accounting/generate", {
             method: "POST",
-            body: JSON.stringify({ invoiceData, statutPaiement, montantPartiel }),
+            body: JSON.stringify({ 
+                invoiceData, 
+                statutPaiement, 
+                montantPartiel,
+                model: selectedModel,
+            }),
         });
 
         if (!response.success) {
@@ -32,11 +49,18 @@ export class AccountingClient extends BaseApiClient {
     async refineAccountingEntry(
         previousEntry: AccountingEntry,
         userFeedback: string,
-        originalInvoiceData: Record<string, unknown>
+        originalInvoiceData: Record<string, unknown>,
+        model?: AIModel
     ): Promise<AccountingResult> {
+        const selectedModel = model || this.getSelectedModel();
         const response = await this.request<AccountingResult["data"]>("/api/accounting/refine", {
             method: "POST",
-            body: JSON.stringify({ previousEntry, userFeedback, originalInvoiceData }),
+            body: JSON.stringify({ 
+                previousEntry, 
+                userFeedback, 
+                originalInvoiceData,
+                model: selectedModel,
+            }),
         });
 
         if (!response.success) {

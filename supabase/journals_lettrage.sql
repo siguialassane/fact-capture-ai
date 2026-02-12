@@ -198,15 +198,15 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE VIEW vue_grand_livre AS
 SELECT 
     jel.id,
-    jel.numero_compte,
+    jel.compte_numero AS numero_compte,
     pc.libelle AS libelle_compte,
-    LEFT(jel.numero_compte, 1) AS classe,
+    LEFT(jel.compte_numero, 1) AS classe,
     je.date_piece,
     je.numero_piece,
     je.journal_code,
-    jel.libelle_ligne,
+    jel.libelle AS libelle_ligne,
     jel.tiers_code,
-    t.nom AS tiers_nom,
+    t.raison_sociale AS tiers_nom,
     jel.debit,
     jel.credit,
     jel.lettre,
@@ -215,23 +215,23 @@ SELECT
     je.statut,
     -- Calcul du solde cumulé (sera calculé par la requête)
     SUM(jel.debit - jel.credit) OVER (
-        PARTITION BY jel.numero_compte 
+        PARTITION BY jel.compte_numero 
         ORDER BY je.date_piece, je.id, jel.id
     ) AS solde_cumule
 FROM journal_entry_lines jel
-JOIN journal_entries je ON jel.ecriture_id = je.id
-LEFT JOIN plan_comptable pc ON jel.numero_compte = pc.numero_compte
+JOIN journal_entries je ON jel.entry_id = je.id
+LEFT JOIN plan_comptable pc ON jel.compte_numero = pc.numero_compte
 LEFT JOIN tiers t ON jel.tiers_code = t.code
-ORDER BY jel.numero_compte, je.date_piece, je.id, jel.id;
+ORDER BY jel.compte_numero, je.date_piece, je.id, jel.id;
 
 -- ============================================================
 -- 6. VUE BALANCE DES COMPTES
 -- ============================================================
 CREATE OR REPLACE VIEW vue_balance AS
 SELECT 
-    jel.numero_compte,
+    jel.compte_numero AS numero_compte,
     COALESCE(pc.libelle, jel.libelle_compte) AS libelle_compte,
-    LEFT(jel.numero_compte, 1) AS classe,
+    LEFT(jel.compte_numero, 1) AS classe,
     SUM(jel.debit) AS mouvement_debit,
     SUM(jel.credit) AS mouvement_credit,
     CASE 
@@ -245,11 +245,11 @@ SELECT
         ELSE 0 
     END AS solde_credit
 FROM journal_entry_lines jel
-JOIN journal_entries je ON jel.ecriture_id = je.id
-LEFT JOIN plan_comptable pc ON jel.numero_compte = pc.numero_compte
+JOIN journal_entries je ON jel.entry_id = je.id
+LEFT JOIN plan_comptable pc ON jel.compte_numero = pc.numero_compte
 WHERE je.statut IN ('validee', 'cloturee')
-GROUP BY jel.numero_compte, COALESCE(pc.libelle, jel.libelle_compte)
-ORDER BY jel.numero_compte;
+GROUP BY jel.compte_numero, COALESCE(pc.libelle, jel.libelle_compte)
+ORDER BY jel.compte_numero;
 
 -- ============================================================
 -- 7. VUE RÉSUMÉ PAR JOURNAL
@@ -266,7 +266,7 @@ SELECT
     MAX(je.numero_piece) AS derniere_piece
 FROM journal_entries je
 JOIN journaux j ON je.journal_code = j.code
-JOIN journal_entry_lines jel ON jel.ecriture_id = je.id
+JOIN journal_entry_lines jel ON jel.entry_id = je.id
 GROUP BY je.journal_code, j.libelle, TO_CHAR(je.date_piece, 'YYYY-MM')
 ORDER BY periode DESC, je.journal_code;
 
@@ -288,7 +288,7 @@ BEGIN
     -- Vérifier que toutes les lignes sont du même compte
     IF EXISTS (
         SELECT 1 FROM journal_entry_lines 
-        WHERE id = ANY(p_ligne_ids) AND numero_compte != p_compte
+        WHERE id = ANY(p_ligne_ids) AND compte_numero != p_compte
     ) THEN
         RETURN QUERY SELECT false, NULL::VARCHAR(10), NULL::DECIMAL(18,2);
         RETURN;
@@ -337,7 +337,7 @@ BEGIN
     -- Récupérer les lignes à délettrer
     SELECT ARRAY_AGG(id), SUM(debit) INTO v_ligne_ids, v_montant
     FROM journal_entry_lines 
-    WHERE lettre = p_lettre AND numero_compte = p_compte;
+    WHERE lettre = p_lettre AND compte_numero = p_compte;
     
     IF v_ligne_ids IS NULL THEN
         RETURN false;
@@ -366,11 +366,11 @@ SELECT
     je.numero_piece,
     je.date_piece,
     je.journal_code,
-    jel.numero_compte,
+    jel.compte_numero AS numero_compte,
     COALESCE(pc.libelle, jel.libelle_compte) AS libelle_compte,
-    jel.libelle_ligne,
+    jel.libelle AS libelle_ligne,
     jel.tiers_code,
-    t.nom AS tiers_nom,
+    t.raison_sociale AS tiers_nom,
     jel.debit,
     jel.credit,
     jel.debit - jel.credit AS montant,
@@ -384,12 +384,12 @@ SELECT
         ELSE 'non_lettre'
     END AS statut_lettrage
 FROM journal_entry_lines jel
-JOIN journal_entries je ON jel.ecriture_id = je.id
-LEFT JOIN plan_comptable pc ON jel.numero_compte = pc.numero_compte
+JOIN journal_entries je ON jel.entry_id = je.id
+LEFT JOIN plan_comptable pc ON jel.compte_numero = pc.numero_compte
 LEFT JOIN tiers t ON jel.tiers_code = t.code
-WHERE jel.numero_compte LIKE '4%'  -- Comptes de tiers uniquement
+WHERE jel.compte_numero LIKE '4%'  -- Comptes de tiers uniquement
     AND je.statut IN ('validee', 'cloturee')
-ORDER BY jel.numero_compte, je.date_piece, je.id;
+ORDER BY jel.compte_numero, je.date_piece, je.id;
 
 -- ============================================================
 -- COMMENTAIRES

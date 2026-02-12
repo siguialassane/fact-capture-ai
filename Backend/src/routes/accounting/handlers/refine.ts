@@ -12,15 +12,16 @@ export function registerRefineRoutes(accounting: Hono) {
     "/refine",
     zValidator("json", RefineEntrySchema),
     async (c) => {
-      const { previousEntry, userFeedback, originalInvoiceData } = c.req.valid("json");
+      const { previousEntry, userFeedback, originalInvoiceData, model } = c.req.valid("json");
 
-      console.log("[Accounting API] Affinement d'écriture comptable...");
+      console.log(`[Accounting API] Raffinement d'écriture comptable avec ${model || 'modèle par défaut'}...`);
 
       try {
-        const result: AccountingResult = await refineAccountingEntry(
+        const result = await refineAccountingEntry(
           previousEntry as any,
           userFeedback,
-          originalInvoiceData as any
+          originalInvoiceData as any,
+          model as any
         );
 
         if (!result.success) {

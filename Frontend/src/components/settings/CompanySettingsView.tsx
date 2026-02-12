@@ -113,7 +113,7 @@ export function CompanySettingsView() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center gap-3">
         <div className="p-2 rounded-lg bg-violet-100">
           <Building2 className="h-6 w-6 text-violet-700" />

@@ -5,6 +5,7 @@ export const GenerateEntrySchema = z.object({
   invoiceId: z.number().optional(), // ID de la facture source
   statutPaiement: z.enum(["paye", "non_paye", "partiel", "inconnu"]).optional(),
   montantPartiel: z.number().optional(),
+  model: z.enum(["google/gemini-2.5-flash", "google/gemini-3-flash-preview"]).optional(), // Modèle IA
 });
 
 export const RefineEntrySchema = z.object({
@@ -32,6 +33,7 @@ export const RefineEntrySchema = z.object({
   }),
   userFeedback: z.string(),
   originalInvoiceData: z.record(z.any()),
+  model: z.enum(["google/gemini-2.5-flash", "google/gemini-3-flash-preview"]).optional(), // Modèle IA
 });
 
 export const SaveEntrySchema = z.object({

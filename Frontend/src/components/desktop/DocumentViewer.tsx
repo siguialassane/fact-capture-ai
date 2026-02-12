@@ -81,6 +81,12 @@ export function DocumentViewer({ imageUrl, pdfUrl, status }: DocumentViewerProps
         ) : isPdf ? (
           // Affichage PDF natif avec iframe
           <div className="relative w-full h-full animate-in">
+            {status === "analyzing" && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-primary/90 backdrop-blur text-primary-foreground px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+                <LoadingSpinner size="sm" />
+                <span className="text-sm font-medium">Analyse en cours...</span>
+              </div>
+            )}
             <iframe
               src={pdfUrl}
               className="w-full h-full rounded-lg shadow-lg bg-white"
@@ -91,17 +97,6 @@ export function DocumentViewer({ imageUrl, pdfUrl, status }: DocumentViewerProps
                 minHeight: '70vh'
               }}
             />
-            {status === "analyzing" && (
-              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center rounded-lg">
-                <div className="text-center">
-                  <LoadingSpinner size="lg" className="mx-auto mb-4" />
-                  <p className="text-foreground font-medium">Analyse en cours...</p>
-                  <p className="text-sm text-muted-foreground">
-                    Extraction des données du PDF
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
         ) : (
           // Affichage image
@@ -109,22 +104,17 @@ export function DocumentViewer({ imageUrl, pdfUrl, status }: DocumentViewerProps
             className="relative bg-white/5 rounded-lg overflow-hidden transition-transform duration-300 animate-in origin-top"
             style={{ transform: `scale(${zoom / 100})` }}
           >
+            {status === "analyzing" && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-primary/90 backdrop-blur text-primary-foreground px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+                <LoadingSpinner size="sm" />
+                <span className="text-sm font-medium">Analyse en cours...</span>
+              </div>
+            )}
             <img
               src={imageUrl}
               alt="Facture scannée"
               className="w-full h-auto object-contain rounded-lg shadow-md"
             />
-            {status === "analyzing" && (
-              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
-                <div className="text-center">
-                  <LoadingSpinner size="lg" className="mx-auto mb-4" />
-                  <p className="text-foreground font-medium">Analyse en cours...</p>
-                  <p className="text-sm text-muted-foreground">
-                    Extraction des données
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>

@@ -410,7 +410,7 @@ export async function correctEntryJournal(
     const lignes = existingEntry.lignes || [];
 
     for (const ligne of lignes) {
-      const compte = ligne.numero_compte;
+      const compte = ligne.compte_numero;
 
       // Vérifier si c'est un compte de contrepartie de l'ancien journal
       const isOldContrepartie = oldContrepartie.comptes_associes.some(
@@ -426,7 +426,7 @@ export async function correctEntryJournal(
         const { error: updateLineError } = await getSupabase()
           .from("journal_entry_lines")
           .update({
-            numero_compte: newCompte,
+            compte_numero: newCompte,
             libelle_compte: newContrepartie.libelle
           })
           .eq("id", ligne.id);

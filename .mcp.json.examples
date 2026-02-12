@@ -1,0 +1,104 @@
+# Exemples de configuration MCP Supabase pour VS Code
+
+## Configuration 1 : NPX avec token et project-ref (Recommandé)
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--project-ref",
+        "YOUR_PROJECT_REF",
+        "--read-only"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "YOUR_PAT_TOKEN"
+      }
+    }
+  }
+}
+
+## Configuration 2 : HTTP avec OAuth (Supabase Cloud)
+{
+  "mcpServers": {
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=YOUR_PROJECT_REF&read_only=true"
+    }
+  }
+}
+
+## Configuration 3 : NPX sans project-ref (accès à tous les projets)
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "YOUR_PAT_TOKEN"
+      }
+    }
+  }
+}
+
+## Configuration 4 : Local (Supabase CLI)
+{
+  "mcpServers": {
+    "supabase-local": {
+      "type": "http",
+      "url": "http://localhost:54321/mcp"
+    }
+  }
+}
+
+## Configuration 5 : Mode développement avec features spécifiques
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--project-ref",
+        "YOUR_PROJECT_REF",
+        "--features",
+        "database,docs,debugging"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "YOUR_PAT_TOKEN"
+      }
+    }
+  }
+}
+
+## Configuration 6 : Avec Bunx (alternative à NPX)
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "bunx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--project-ref",
+        "YOUR_PROJECT_REF"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "YOUR_PAT_TOKEN"
+      }
+    }
+  }
+}
+
+## Features disponibles :
+# - account      : Gestion des projets et organisations
+# - database     : Opérations base de données
+# - docs         : Documentation Supabase
+# - debugging    : Logs et métriques
+# - development  : Configuration du projet
+# - functions    : Edge Functions
+# - storage      : Gestion du stockage
+# - branching    : Branches Git (plan payant)
