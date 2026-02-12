@@ -240,7 +240,7 @@ invoiceRoutes.post("/cleanup-unvalidated", async (c) => {
     const { data: validatedEntries, error: validatedError } = await getSupabase()
       .from("journal_entries")
       .select("invoice_id")
-      .in("statut", ["valide", "validee"])
+      .in("statut", ["validee", "cloturee"])
       .not("invoice_id", "is", null);
 
     if (validatedError) {

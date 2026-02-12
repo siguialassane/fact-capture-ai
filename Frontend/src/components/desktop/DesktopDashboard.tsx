@@ -1,14 +1,19 @@
 import { useEffect, useCallback } from "react";
 import { DashboardSidebar } from "./DashboardSidebar";
+import { HeaderBar } from "./HeaderBar";
 import { StatsDashboard } from "./StatsDashboard";
 import { DashboardLeftPane } from "./DashboardLeftPane";
 import { DashboardRightPane } from "./DashboardRightPane";
 import { JournauxView } from "@/components/journals";
 import { GrandLivreView } from "@/components/grand-livre";
+import { BalanceView } from "@/components/balance";
 import { LettrageView } from "@/components/lettrage";
 import { EtatsFinanciersView } from "@/components/etats-financiers";
 import { InvoicesListView } from "@/components/invoices/InvoicesListView";
 import { SettingsView } from "@/components/settings/SettingsView";
+import { SaisieManuelleView } from "@/components/saisie";
+import { TiersView } from "@/components/tiers";
+import { RapprochementView } from "@/components/rapprochement";
 import { AnalysisTimer } from "@/components/ui/AnalysisTimer";
 import { getLatestInvoice } from "@/lib/db";
 import { isOpenRouterConfigured, type FlexibleInvoiceAIResult } from "@/lib/openrouter";
@@ -476,8 +481,37 @@ export function DesktopDashboard() {
     [regenerateData, supabaseInvoice?.id]
   );
 
+  // Page title & breadcrumb mapping
+  const pageConfig: Record<string, { title: string; breadcrumb?: string[] }> = {
+    dashboard: { title: "Tableau de bord" },
+    analysis: { title: "Capture IA", breadcrumb: ["Saisie"] },
+    accounting: { title: "Écriture IA", breadcrumb: ["Saisie"] },
+    saisie: { title: "Saisie manuelle", breadcrumb: ["Saisie"] },
+    journaux: { title: "Journaux", breadcrumb: ["Comptabilité"] },
+    "grand-livre": { title: "Grand Livre", breadcrumb: ["Comptabilité"] },
+    balance: { title: "Balance", breadcrumb: ["Comptabilité"] },
+    lettrage: { title: "Lettrage", breadcrumb: ["Comptabilité"] },
+    rapprochement: { title: "Rapprochement bancaire", breadcrumb: ["Comptabilité"] },
+    tiers: { title: "Tiers", breadcrumb: ["Tiers & Documents"] },
+    invoices: { title: "Factures", breadcrumb: ["Tiers & Documents"] },
+    "etats-financiers": { title: "États Financiers", breadcrumb: ["Finances"] },
+    cloture: { title: "Clôture d'exercice", breadcrumb: ["Finances"] },
+    settings: { title: "Paramètres" },
+    help: { title: "Aide" },
+  };
+
+  const currentPage = pageConfig[activeMenuItem] || { title: activeMenuItem };
+
+  // Full page views (no split pane needed)
+  const fullPageViews = [
+    "dashboard", "journaux", "grand-livre", "balance", "lettrage",
+    "etats-financiers", "invoices", "settings", "saisie", "tiers",
+    "rapprochement", "cloture", "help",
+  ];
+  const isFullPage = fullPageViews.includes(activeMenuItem);
+
   return (
-    <div className="h-screen bg-background flex overflow-hidden">
+    <div className="h-screen flex overflow-hidden">
       {/* Chronomètre Qwen - Analyse facture uniquement */}
       <AnalysisTimer
         isAnalyzing={status === "analyzing"}
@@ -507,65 +541,96 @@ export function DesktopDashboard() {
         onItemClick={setActiveMenuItem}
       />
 
-      {(activeMenuItem === "dashboard" || activeMenuItem === "journaux" || activeMenuItem === "grand-livre" || activeMenuItem === "lettrage" || activeMenuItem === "etats-financiers" || activeMenuItem === "invoices" || activeMenuItem === "settings") ? (
-        <div className="flex-1 overflow-auto">
-          {activeMenuItem === "dashboard" && <StatsDashboard />}
-          {activeMenuItem === "journaux" && <JournauxView />}
-          {activeMenuItem === "grand-livre" && <GrandLivreView />}
-          {activeMenuItem === "lettrage" && <LettrageView />}
-          {activeMenuItem === "etats-financiers" && <EtatsFinanciersView />}
-          {activeMenuItem === "invoices" && <InvoicesListView />}
-          {activeMenuItem === "settings" && <SettingsView />}
-        </div>
-      ) : (
-        <div className="flex-1 flex">
-          <div className="flex-1 border-r border-border">
-            <DashboardLeftPane
-              activeMenuItem={activeMenuItem}
-              showPaymentSelector={showPaymentSelector}
-              invoiceData={invoiceData}
-              accountingEntry={accountingEntry}
-              accountingStatus={accountingStatus}
-              accountingReasoning={accountingReasoning}
-              accountingSuggestions={accountingSuggestions}
-              confirmedPaymentStatus={confirmedPaymentStatus}
-              confirmedPartialAmount={confirmedPartialAmount}
-              onPaymentConfirm={handlePaymentStatusConfirm}
-              onRegeneratePaymentStatus={() => setShowPaymentSelector(true)}
-              onRegenerateWithStatus={handleRegenerateWithNewStatus}
-              onRefine={handleRefineAccounting}
-              onSave={handleSaveAccounting}
-              onChat={handleAccountingChat}
-              isSaving={isSavingAccounting}
-              isSaved={isAccountingSaved}
-              status={status}
-              imageUrl={invoice?.image}
-              onDataChange={updateData}
-              onArticleChange={updateArticle}
-              onNewInvoice={handleNewInvoice}
-              onFileUpload={handleFileUpload}
-              onRequestPhotoFromPWA={requestPhotoFromMobile}
-              isWaitingForPWA={isWaitingForPWA}
-              onSendChatMessage={status === "complete" && invoiceData ? handleChatMessage : undefined}
-              onRegenerateChatData={handleRegenerateData}
-              isChatLoading={isChatLoading}
-              chatMessages={chatMessages}
-              setChatMessages={setChatMessages}
-            />
-          </div>
+      {/* Main area: header + content */}
+      <div className="flex-1 flex flex-col min-w-0 bg-slate-50">
+        <HeaderBar
+          title={currentPage.title}
+          breadcrumb={currentPage.breadcrumb}
+        />
 
-          <div className="w-[45%]">
-            <DashboardRightPane
-              activeMenuItem={activeMenuItem}
-              invoiceData={invoiceData}
-              onArticleChange={updateArticle}
-              pdfUrl={pdfUrl}
-              imageUrl={invoice?.image}
-              status={status}
-            />
+        {isFullPage ? (
+          <div className="flex-1 overflow-auto">
+            {activeMenuItem === "dashboard" && <StatsDashboard />}
+            {activeMenuItem === "journaux" && <JournauxView />}
+            {activeMenuItem === "grand-livre" && <GrandLivreView />}
+            {activeMenuItem === "balance" && <BalanceView />}
+            {activeMenuItem === "lettrage" && <LettrageView />}
+            {activeMenuItem === "rapprochement" && <RapprochementView />}
+            {activeMenuItem === "etats-financiers" && <EtatsFinanciersView />}
+            {activeMenuItem === "invoices" && <InvoicesListView />}
+            {activeMenuItem === "saisie" && <SaisieManuelleView />}
+            {activeMenuItem === "tiers" && <TiersView />}
+            {activeMenuItem === "cloture" && <PlaceholderView title="Clôture d'Exercice" description="Workflow de clôture comptable — en cours de développement" />}
+            {activeMenuItem === "settings" && <SettingsView />}
+            {activeMenuItem === "help" && <PlaceholderView title="Aide" description="Documentation et support — en cours de développement" />}
           </div>
+        ) : (
+          <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 border-r border-border overflow-auto">
+              <DashboardLeftPane
+                activeMenuItem={activeMenuItem}
+                showPaymentSelector={showPaymentSelector}
+                invoiceData={invoiceData}
+                accountingEntry={accountingEntry}
+                accountingStatus={accountingStatus}
+                accountingReasoning={accountingReasoning}
+                accountingSuggestions={accountingSuggestions}
+                confirmedPaymentStatus={confirmedPaymentStatus}
+                confirmedPartialAmount={confirmedPartialAmount}
+                onPaymentConfirm={handlePaymentStatusConfirm}
+                onRegeneratePaymentStatus={() => setShowPaymentSelector(true)}
+                onRegenerateWithStatus={handleRegenerateWithNewStatus}
+                onRefine={handleRefineAccounting}
+                onSave={handleSaveAccounting}
+                onChat={handleAccountingChat}
+                isSaving={isSavingAccounting}
+                isSaved={isAccountingSaved}
+                status={status}
+                imageUrl={invoice?.image}
+                onDataChange={updateData}
+                onArticleChange={updateArticle}
+                onNewInvoice={handleNewInvoice}
+                onFileUpload={handleFileUpload}
+                onRequestPhotoFromPWA={requestPhotoFromMobile}
+                isWaitingForPWA={isWaitingForPWA}
+                onSendChatMessage={status === "complete" && invoiceData ? handleChatMessage : undefined}
+                onRegenerateChatData={handleRegenerateData}
+                isChatLoading={isChatLoading}
+                chatMessages={chatMessages}
+                setChatMessages={setChatMessages}
+              />
+            </div>
+
+            <div className="w-[45%] overflow-auto">
+              <DashboardRightPane
+                activeMenuItem={activeMenuItem}
+                invoiceData={invoiceData}
+                onArticleChange={updateArticle}
+                pdfUrl={pdfUrl}
+                imageUrl={invoice?.image}
+                status={status}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Placeholder for views not yet implemented */
+function PlaceholderView({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="flex-1 flex items-center justify-center p-12">
+      <div className="text-center max-w-md">
+        <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-5">
+          <svg className="w-8 h-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
         </div>
-      )}
+        <h2 className="text-xl font-semibold text-slate-800 mb-2">{title}</h2>
+        <p className="text-sm text-slate-500">{description}</p>
+      </div>
     </div>
   );
 }

@@ -97,7 +97,7 @@ export function registerSaveRoutes(accounting: Hono) {
             montant_total: ecriture.total_debit,
             total_debit: ecriture.total_debit,
             total_credit: ecriture.total_credit,
-            statut: "valide",
+            statut: "validee",
             validated_at: new Date().toISOString(),
             genere_par_ia: true,
             ia_model: iaModel || "deepseek/deepseek-v3.2",

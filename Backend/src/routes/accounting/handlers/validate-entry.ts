@@ -41,7 +41,7 @@ export function registerValidateEntryRoutes(accounting: Hono) {
       const { data: updatedEntry, error: updateError } = await getSupabase()
         .from("journal_entries")
         .update({
-          statut: "valide",
+          statut: "validee",
           validated_at: new Date().toISOString(),
         })
         .eq("id", entryId)
@@ -61,7 +61,7 @@ export function registerValidateEntryRoutes(accounting: Hono) {
         message: `Écriture ${entry.numero_piece} validée avec succès`,
         details: {
           previous_status: "brouillon",
-          new_status: "valide",
+          new_status: "validee",
         },
         executed_by: "user",
       });

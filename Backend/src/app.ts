@@ -19,6 +19,8 @@ import { lettrage } from "./routes/lettrage.js";
 import { etatsFinanciers } from "./routes/etats-financiers.js";
 import { audit } from "./routes/audit.js";
 import { companyRoutes } from "./routes/company.js";
+import { tiersRoutes } from "./routes/tiers.js";
+import { rapprochementRoutes } from "./routes/rapprochement.js";
 
 // Create Hono app
 export const app = new Hono();
@@ -58,6 +60,8 @@ app.route("/api/lettrage", lettrage);
 app.route("/api/etats-financiers", etatsFinanciers);
 app.route("/api/audit", audit);
 app.route("/api/company", companyRoutes);
+app.route("/api/tiers", tiersRoutes);
+app.route("/api/rapprochement", rapprochementRoutes);
 
 // Root endpoint
 app.get("/", (c) => {
