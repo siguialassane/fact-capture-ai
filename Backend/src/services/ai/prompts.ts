@@ -80,6 +80,15 @@ export const INVOICE_ANALYSIS_PROMPT = `Tu es un ASSISTANT COMPTABLE. Analyse ce
    - Conditions: Comptant, 30j, 60j fin de mois...
    - Date d'échéance si paiement différé
 
+6. DEVISE (⚠️ IMPORTANT)
+   Détecte la devise utilisée sur la facture:
+   - FCFA / XOF / CFA / F CFA → devise: "FCFA" (Franc CFA, utilisé en Afrique de l'Ouest et Centrale)
+   - EUR / € / EURO → devise: "EUR"
+   - USD / $ / Dollar → devise: "USD"
+   - Autres: GBP, CHF, CNY, etc.
+   
+   ⚠️ Par défaut en Afrique francophone: Si aucun symbole visible mais montants en milliers/millions sans décimales → présumer "FCFA"
+
 📐 FORMAT JSON:
 {
   "is_invoice": true,
@@ -118,7 +127,7 @@ export const INVOICE_ANALYSIS_PROMPT = `Tu es un ASSISTANT COMPTABLE. Analyse ce
   ],
   "total_tva": "Total TVA",
   "montant_total": "NET À PAYER (TTC)",
-  "devise": "XOF | EUR | USD",
+  "devise": "XOF | FCFA | EUR | USD | GBP | CHF",
   
   "remise": "Remise si applicable",
   "acompte": "Acompte versé",
@@ -143,7 +152,8 @@ export const INVOICE_ANALYSIS_PROMPT = `Tu es un ASSISTANT COMPTABLE. Analyse ce
 3. MONTANTS: Avec devise, JAMAIS de 0 par défaut (laisse vide si invisible)
 4. TVA MULTIPLE: Si plusieurs taux, détaille chaque taux dans "tva_details"
 5. NATURE DÉPENSE: La désignation doit permettre d'identifier le compte comptable
-6. JSON PUR: Pas de texte autour, pas de markdown
+6. DEVISE: Cherche bien FCFA/XOF/CFA sur la facture. Si montants en milliers sans symbole → probablement FCFA
+7. JSON PUR: Pas de texte autour, pas de markdown
 
 ✅ Réponds UNIQUEMENT avec le JSON.`;
 

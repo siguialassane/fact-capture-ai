@@ -73,8 +73,8 @@ export class AccountingClient extends BaseApiClient {
         return { success: true, data: response.data };
     }
 
-    async getPlanComptable(): Promise<Record<string, Array<{ numero: string; libelle: string }>>> {
-        const response = await this.request<Record<string, Array<{ numero: string; libelle: string }>>>(
+    async getPlanComptable(): Promise<Record<string, Array<{ numero_compte: string; libelle: string }>>> {
+        const response = await this.request<Record<string, Array<{ numero_compte: string; libelle: string }>>>(
             "/api/accounting/plan-comptable"
         );
         return response.data || {};

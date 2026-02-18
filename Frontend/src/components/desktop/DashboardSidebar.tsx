@@ -175,11 +175,11 @@ export function DashboardSidebar({ activeItem = "dashboard", onItemClick }: Side
       </div>
 
       {/* Menu Groups */}
-      <nav className="flex-1 overflow-y-auto py-3 scrollbar-thin">
+      <nav className="flex-1 overflow-y-auto py-2 scrollbar-none overflow-x-hidden">
         {menuGroups.map((group, groupIdx) => (
-          <div key={groupIdx} className="mb-1">
+          <div key={groupIdx} className="mb-2">
             {group.label && !isCollapsed && (
-              <p className="px-4 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              <p className="px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-400 mb-0.5">
                 {group.label}
               </p>
             )}

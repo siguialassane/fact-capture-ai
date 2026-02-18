@@ -7,6 +7,7 @@ import {
   RotateCcw,
   AlertTriangle,
   CheckCircle2,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks";
 import { saveAccountingEntry } from "@/lib/api/backend-client";
 import { cn } from "@/lib/utils";
+import { ComptePicker } from "./ComptePicker";
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -73,6 +75,10 @@ export function SaisieManuelleView() {
   // Lines
   const [lignes, setLignes] = useState<LigneEcriture[]>([newLigne(), newLigne()]);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // État pour le sélecteur de compte
+  const [comptePickerOpen, setComptePickerOpen] = useState(false);
+  const [selectedLigneId, setSelectedLigneId] = useState<string | null>(null);
 
   // Totals
   const totalDebit = useMemo(
@@ -91,6 +97,43 @@ export function SaisieManuelleView() {
     setLignes((prev) => [...prev, newLigne()]);
   }, []);
 
+  // Suppression intelligente : 1er clic vide, 2ème clic supprime
+  const handleRemoveLigne = useCallback(
+    (ligne: LigneEcriture, idx: number) => {
+      // Vérifier si la ligne est vide
+      const isLineEmpty = 
+        !ligne.numero_compte.trim() && 
+        !ligne.libelle_compte.trim() && 
+        !ligne.libelle_ligne.trim() && 
+        ligne.debit === 0 && 
+        ligne.credit === 0;
+
+      if (isLineEmpty) {
+        // Si ligne vide et plus de 2 lignes : supprimer
+        if (lignes.length > 2) {
+          setLignes((prev) => prev.filter((l) => l.id !== ligne.id));
+        }
+      } else {
+        // Si ligne contient des données : vider la ligne
+        setLignes((prev) =>
+          prev.map((l) =>
+            l.id === ligne.id
+              ? {
+                  ...l,
+                  numero_compte: "",
+                  libelle_compte: "",
+                  libelle_ligne: "",
+                  debit: 0,
+                  credit: 0,
+                }
+              : l
+          )
+        );
+      }
+    },
+    [lignes.length]
+  );
+
   const removeLigne = useCallback((id: string) => {
     setLignes((prev) => {
       if (prev.length <= 2) return prev; // Min 2 lignes
@@ -105,6 +148,30 @@ export function SaisieManuelleView() {
       );
     },
     []
+  );
+  
+  // Ouvrir le sélecteur de compte pour une ligne
+  const openComptePicker = useCallback((ligneId: string) => {
+    setSelectedLigneId(ligneId);
+    setComptePickerOpen(true);
+  }, []);
+  
+  // Sélectionner un compte depuis le picker
+  const handleCompteSelect = useCallback(
+    (compte: { numero_compte: string; libelle: string }) => {
+      if (selectedLigneId) {
+        setLignes((prev) =>
+          prev.map((l) =>
+            l.id === selectedLigneId
+              ? { ...l, numero_compte: compte.numero_compte, libelle_compte: compte.libelle }
+              : l
+          )
+        );
+      }
+      setComptePickerOpen(false);
+      setSelectedLigneId(null);
+    },
+    [selectedLigneId]
   );
 
   // Quick equilibrage: fill last line
@@ -195,22 +262,35 @@ export function SaisieManuelleView() {
 
       if (result.success) {
         toast({
-          title: "Écriture enregistrée",
+          title: "✓ Écriture enregistrée",
           description: `Pièce ${numeroPiece} sauvegardée avec succès`,
         });
         reset();
       } else {
+        let errorMsg = result.error?.message || "Échec de la sauvegarde";
+        
+        // Messages d'erreur personnalisés
+        if (errorMsg.includes("compte")) {
+          errorMsg = errorMsg + "\n\nUtilisez le bouton 📖 pour sélectionner des comptes valides.";
+        }
+        
         toast({
-          title: "Erreur",
-          description: result.error?.message || "Échec de la sauvegarde",
+          title: "❌ Erreur d'enregistrement",
+          description: errorMsg,
           variant: "destructive",
         });
       }
     } catch (err) {
       console.error("Erreur sauvegarde:", err);
+      let errorMsg = "Une erreur est survenue lors de l'enregistrement";
+      
+      if (err instanceof Error && err.message.includes("compte")) {
+        errorMsg = err.message + "\n\nUtilisez le bouton 📖 pour sélectionner des comptes valides.";
+      }
+      
       toast({
-        title: "Erreur",
-        description: "Une erreur est survenue",
+        title: "❌ Erreur",
+        description: errorMsg,
         variant: "destructive",
       });
     } finally {
@@ -305,16 +385,16 @@ export function SaisieManuelleView() {
       {/* Lines */}
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-base">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase w-8">#</th>
-                <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase w-28">Compte</th>
-                <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase w-44">Libellé compte</th>
-                <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Libellé</th>
-                <th className="px-3 py-2.5 text-right text-xs font-semibold text-slate-600 uppercase w-32">Débit</th>
-                <th className="px-3 py-2.5 text-right text-xs font-semibold text-slate-600 uppercase w-32">Crédit</th>
-                <th className="px-3 py-2.5 w-10" />
+              <tr className="bg-slate-50 border-b-2 border-slate-200">
+                <th className="px-4 py-3.5 text-left text-xs font-bold text-slate-700 uppercase w-10">#</th>
+                <th className="px-4 py-3.5 text-left text-xs font-bold text-slate-700 uppercase w-40">Compte</th>
+                <th className="px-4 py-3.5 text-left text-xs font-bold text-slate-700 uppercase w-52">Libellé compte</th>
+                <th className="px-4 py-3.5 text-left text-xs font-bold text-slate-700 uppercase">Libellé</th>
+                <th className="px-4 py-3.5 text-right text-xs font-bold text-slate-700 uppercase w-40">Débit</th>
+                <th className="px-4 py-3.5 text-right text-xs font-bold text-slate-700 uppercase w-40">Crédit</th>
+                <th className="px-4 py-3.5 w-12" />
               </tr>
             </thead>
             <tbody>
@@ -326,32 +406,44 @@ export function SaisieManuelleView() {
                     idx % 2 === 1 && "bg-slate-50/50"
                   )}
                 >
-                  <td className="px-3 py-1.5 text-slate-400 text-xs">{idx + 1}</td>
-                  <td className="px-1.5 py-1.5">
-                    <Input
-                      value={ligne.numero_compte}
-                      onChange={(e) => updateLigne(ligne.id, "numero_compte", e.target.value)}
-                      placeholder="601100"
-                      className="h-8 text-sm font-mono"
-                    />
+                  <td className="px-4 py-2.5 text-slate-500 text-sm font-medium">{idx + 1}</td>
+                  <td className="px-2 py-2.5">
+                    <div className="flex gap-1">
+                      <Input
+                        value={ligne.numero_compte}
+                        onChange={(e) => updateLigne(ligne.id, "numero_compte", e.target.value)}
+                        placeholder="601100"
+                        className="h-10 text-sm font-mono flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-10 w-10 shrink-0"
+                        onClick={() => openComptePicker(ligne.id)}
+                        title="Choisir dans le plan comptable"
+                      >
+                        <BookOpen className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </td>
-                  <td className="px-1.5 py-1.5">
+                  <td className="px-2 py-2.5">
                     <Input
                       value={ligne.libelle_compte}
                       onChange={(e) => updateLigne(ligne.id, "libelle_compte", e.target.value)}
                       placeholder="Achats de..."
-                      className="h-8 text-sm"
+                      className="h-10 text-sm"
                     />
                   </td>
-                  <td className="px-1.5 py-1.5">
+                  <td className="px-2 py-2.5">
                     <Input
                       value={ligne.libelle_ligne}
                       onChange={(e) => updateLigne(ligne.id, "libelle_ligne", e.target.value)}
                       placeholder="Libellé du mvt"
-                      className="h-8 text-sm"
+                      className="h-10 text-sm"
                     />
                   </td>
-                  <td className="px-1.5 py-1.5">
+                  <td className="px-2 py-2.5">
                     <Input
                       type="number"
                       min={0}
@@ -359,10 +451,10 @@ export function SaisieManuelleView() {
                       value={ligne.debit || ""}
                       onChange={(e) => updateLigne(ligne.id, "debit", Number(e.target.value) || 0)}
                       placeholder="0"
-                      className="h-8 text-sm text-right font-mono"
+                      className="h-10 text-sm text-right font-mono"
                     />
                   </td>
-                  <td className="px-1.5 py-1.5">
+                  <td className="px-2 py-2.5">
                     <Input
                       type="number"
                       min={0}
@@ -370,18 +462,24 @@ export function SaisieManuelleView() {
                       value={ligne.credit || ""}
                       onChange={(e) => updateLigne(ligne.id, "credit", Number(e.target.value) || 0)}
                       placeholder="0"
-                      className="h-8 text-sm text-right font-mono"
+                      className="h-10 text-sm text-right font-mono"
                     />
                   </td>
-                  <td className="px-1.5 py-1.5">
+                  <td className="px-2 py-2.5">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 text-slate-400 hover:text-red-500"
-                      onClick={() => removeLigne(ligne.id)}
-                      disabled={lignes.length <= 2}
+                      className="h-9 w-9 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                      onClick={() => handleRemoveLigne(ligne, idx)}
+                      title={
+                        ligne.numero_compte || ligne.debit || ligne.credit
+                          ? "Vider la ligne (cliquez à nouveau pour supprimer)"
+                          : lignes.length <= 2
+                          ? "Minimum 2 lignes requises"
+                          : "Supprimer la ligne"
+                      }
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </td>
                 </tr>
@@ -389,22 +487,22 @@ export function SaisieManuelleView() {
             </tbody>
             {/* Footer totals */}
             <tfoot>
-              <tr className="border-t-2 border-slate-200 bg-slate-50">
-                <td colSpan={4} className="px-3 py-2.5 text-right">
+              <tr className="border-t-2 border-slate-300 bg-slate-50">
+                <td colSpan={4} className="px-4 py-3">
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 gap-1.5 text-xs text-blue-600 hover:text-blue-700"
+                    className="h-8 gap-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                     onClick={addLigne}
                   >
-                    <Plus className="h-3.5 w-3.5" />
+                    <Plus className="h-4 w-4" />
                     Ajouter une ligne
                   </Button>
                 </td>
-                <td className="px-3 py-2.5 text-right font-mono font-bold text-sm">
+                <td className="px-4 py-3 text-right font-mono font-bold text-base">
                   {totalDebit.toLocaleString("fr-FR")}
                 </td>
-                <td className="px-3 py-2.5 text-right font-mono font-bold text-sm">
+                <td className="px-4 py-3 text-right font-mono font-bold text-base">
                   {totalCredit.toLocaleString("fr-FR")}
                 </td>
                 <td />
@@ -462,6 +560,13 @@ export function SaisieManuelleView() {
           </Button>
         </div>
       </div>
+      
+      {/* Sélecteur de compte comptable */}
+      <ComptePicker
+        open={comptePickerOpen}
+        onClose={() => setComptePickerOpen(false)}
+        onSelect={handleCompteSelect}
+      />
     </div>
   );
 }

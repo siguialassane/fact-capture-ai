@@ -84,7 +84,7 @@ const CreateTiersSchema = z.object({
   conditions_paiement: z.string().max(100).optional(),
   delai_paiement_jours: z.number().int().min(0).optional(),
   plafond_credit: z.number().min(0).optional(),
-  devise: z.string().max(5).optional(),
+  devise: z.string().max(3).optional(), // XOF, EUR, USD (3 chars max)
   contact_nom: z.string().max(100).optional(),
   contact_telephone: z.string().max(30).optional(),
   contact_email: z.string().email().optional().or(z.literal("")),
@@ -123,8 +123,27 @@ tiers.post(
       .single();
 
     if (error) {
+      let errorMessage = "Erreur lors de la création du tiers";
+      
+      // Contrainte de clé étrangère
+      if (error.message.includes("foreign key") || error.message.includes("fk_")) {
+        errorMessage = "Le compte comptable spécifié n'existe pas dans le plan comptable";
+      }
+      // Contrainte de longueur
+      else if (error.message.includes("value too long")) {
+        if (error.message.includes("devise")) {
+          errorMessage = "La devise doit être un code de 3 caractères maximum (ex: XOF, EUR, USD)";
+        } else {
+          errorMessage = "Un des champs dépasse la longueur maximale autorisée";
+        }
+      }
+      // Erreur générique
+      else {
+        errorMessage = error.message;
+      }
+      
       return c.json(
-        { success: false, error: { code: "DB_ERROR", message: error.message } },
+        { success: false, error: { code: "DB_ERROR", message: errorMessage } },
         500
       );
     }
@@ -150,8 +169,27 @@ tiers.put(
       .single();
 
     if (error) {
+      let errorMessage = "Erreur lors de la mise à jour du tiers";
+      
+      // Contrainte de clé étrangère
+      if (error.message.includes("foreign key") || error.message.includes("fk_")) {
+        errorMessage = "Le compte comptable spécifié n'existe pas dans le plan comptable";
+      }
+      // Contrainte de longueur
+      else if (error.message.includes("value too long")) {
+        if (error.message.includes("devise")) {
+          errorMessage = "La devise doit être un code de 3 caractères maximum (ex: XOF, EUR, USD)";
+        } else {
+          errorMessage = "Un des champs dépasse la longueur maximale autorisée";
+        }
+      }
+      // Erreur générique
+      else {
+        errorMessage = error.message;
+      }
+      
       return c.json(
-        { success: false, error: { code: "DB_ERROR", message: error.message } },
+        { success: false, error: { code: "DB_ERROR", message: errorMessage } },
         500
       );
     }

@@ -1,13 +1,34 @@
 import * as React from "react";
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
+import { motion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
+const overlayVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.12 } },
+  exit:   { opacity: 0, transition: { duration: 0.1 } },
+};
+
+const contentVariants = {
+  hidden:  { opacity: 0, scale: 0.96, y: 12 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: { type: "spring" as const, stiffness: 500, damping: 32, mass: 0.6 },
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.96,
+    y: 6,
+    transition: { duration: 0.1, ease: "easeIn" },
+  },
+};
+
 const AlertDialog = AlertDialogPrimitive.Root;
-
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
-
 const AlertDialogPortal = AlertDialogPrimitive.Portal;
 
 const AlertDialogOverlay = React.forwardRef<
@@ -15,41 +36,60 @@ const AlertDialogOverlay = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Overlay>
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Overlay
-    className={cn(
-      "fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-      className,
-    )}
-    {...props}
     ref={ref}
-  />
+    className={cn("fixed inset-0 z-50", className)}
+    {...props}
+  >
+    <motion.div
+      className="absolute inset-0 bg-black/55 backdrop-blur-[2px]"
+      variants={overlayVariants}
+      initial="hidden"
+      animate="visible"
+    />
+  </AlertDialogPrimitive.Overlay>
 ));
 AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName;
 
 const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
->(({ className, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => (
   <AlertDialogPortal>
     <AlertDialogOverlay />
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        "fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] outline-none",
         className,
       )}
       {...props}
-    />
+    >
+      <motion.div
+        className="relative flex flex-col border border-border/50 bg-background shadow-2xl rounded-xl overflow-hidden"
+        variants={contentVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        {children}
+      </motion.div>
+    </AlertDialogPrimitive.Content>
   </AlertDialogPortal>
 ));
 AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName;
 
 const AlertDialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col space-y-2 text-center sm:text-left", className)} {...props} />
+  <div className={cn("flex flex-col space-y-2 p-6 pb-3", className)} {...props} />
 );
 AlertDialogHeader.displayName = "AlertDialogHeader";
 
 const AlertDialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)} {...props} />
+  <div
+    className={cn(
+      "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-0 sm:space-x-2 px-6 py-4 border-t border-border/40 bg-muted/20",
+      className,
+    )}
+    {...props}
+  />
 );
 AlertDialogFooter.displayName = "AlertDialogFooter";
 

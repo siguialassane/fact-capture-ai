@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Search,
   Bell,
@@ -6,6 +6,7 @@ import {
   Calendar,
   Building2,
 } from "lucide-react";
+import { backendApi } from "@/lib/api/backend-client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +42,21 @@ export function HeaderBar({
   children,
 }: HeaderBarProps) {
   const [notifCount] = useState(2);
+  const [companyName, setCompanyName] = useState("Mon Entreprise");
+
+  useEffect(() => {
+    const loadCompany = async () => {
+      try {
+        const company = await backendApi.getCompanyInfo();
+        if (company?.raison_sociale) {
+          setCompanyName(company.raison_sociale);
+        }
+      } catch (error) {
+        console.error("Erreur chargement entreprise:", error);
+      }
+    };
+    loadCompany();
+  }, []);
 
   return (
     <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0">
@@ -87,7 +103,7 @@ export function HeaderBar({
         {/* Company */}
         <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-50 border border-slate-200 text-xs text-slate-600">
           <Building2 className="h-3.5 w-3.5 text-slate-400" />
-          <span className="font-medium">Mon Entreprise</span>
+          <span className="font-medium">{companyName}</span>
         </div>
 
         {/* Exercice selector */}

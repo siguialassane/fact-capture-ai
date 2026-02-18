@@ -194,6 +194,7 @@ export function InvoiceDataPanel({
                   totalHT={data.total_ht}
                   totalTVA={data.total_tva || data.tva}
                   totalTTC={data.montant_total}
+                  devise={data.devise || data.devise_origine || 'FCFA'}
                 />
               </div>
             )}

@@ -51,6 +51,7 @@ export function InvoiceArticlesList({ invoiceData, onArticleChange }: InvoiceArt
                                     totalHT={(invoiceData as any)?.total_ht}
                                     totalTVA={(invoiceData as any)?.total_tva || (invoiceData as any)?.tva}
                                     totalTTC={(invoiceData as any)?.montant_total}
+                                    devise={(invoiceData as any)?.devise || (invoiceData as any)?.devise_origine || 'FCFA'}
                                 />
                             </div>
                         ) : (

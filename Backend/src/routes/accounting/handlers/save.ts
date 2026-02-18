@@ -132,7 +132,19 @@ export function registerSaveRoutes(accounting: Hono) {
         if (lignesError) {
           console.error("[Accounting API] Erreur insertion lignes:", lignesError);
           await getSupabase().from("journal_entries").delete().eq("id", entry.id);
-          throw lignesError;
+          
+          // Messages d'erreur explicites
+          let errorMessage = "Erreur lors de l'enregistrement des lignes comptables";
+          
+          if (lignesError.message.includes("foreign key") || lignesError.message.includes("fk_")) {
+            if (lignesError.message.includes("compte")) {
+              errorMessage = "Un ou plusieurs comptes comptables n'existent pas dans votre plan comptable. Vérifiez les numéros de compte saisis.";
+            } else {
+              errorMessage = "Référence invalide dans les lignes comptables";
+            }
+          }
+          
+          throw new Error(errorMessage);
         }
 
         await getSupabase().from("control_audit_log").insert({

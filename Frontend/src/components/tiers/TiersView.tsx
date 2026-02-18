@@ -1,19 +1,9 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  Users,
-  Plus,
-  Building2,
-  Phone,
-  Mail,
-  MapPin,
-  X,
-} from "lucide-react";
+import { Users, Plus } from "lucide-react";
 import { config } from "@/lib/config";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -22,16 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { useToast } from "@/hooks";
 import { cn } from "@/lib/utils";
+import { TiersFormDialog } from "@/components/tiers/TiersFormDialog";
 
 // ─── Types ────────────────────────────────────────────────────
+
 
 interface Tiers {
   id: string;
@@ -128,11 +114,26 @@ export function TiersView() {
     mutationFn: createTiers,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tiers"] });
-      toast({ title: "Tiers créé avec succès" });
+      toast({ title: "✓ Tiers créé avec succès" });
       setDialogOpen(false);
     },
     onError: (err: Error) => {
-      toast({ title: "Erreur", description: err.message, variant: "destructive" });
+      let description = err.message;
+      
+      // Messages d'erreur personnalisés
+      if (err.message.includes("devise")) {
+        description = "Erreur: " + err.message;
+      } else if (err.message.includes("compte comptable")) {
+        description = "Erreur: " + err.message + ". Veuillez vérifier le plan comptable.";
+      } else if (err.message.includes("existe déjà")) {
+        description = err.message + ". Veuillez choisir un autre code.";
+      }
+      
+      toast({ 
+        title: "Erreur lors de la création", 
+        description, 
+        variant: "destructive" 
+      });
     },
   });
 
@@ -141,12 +142,25 @@ export function TiersView() {
       updateTiers(vars.id, vars.body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tiers"] });
-      toast({ title: "Tiers mis à jour" });
+      toast({ title: "✓ Tiers mis à jour" });
       setDialogOpen(false);
       setEditingTiers(null);
     },
     onError: (err: Error) => {
-      toast({ title: "Erreur", description: err.message, variant: "destructive" });
+      let description = err.message;
+      
+      // Messages d'erreur personnalisés
+      if (err.message.includes("devise")) {
+        description = "Erreur: " + err.message;
+      } else if (err.message.includes("compte comptable")) {
+        description = "Erreur: " + err.message + ". Veuillez vérifier le plan comptable.";
+      }
+      
+      toast({ 
+        title: "Erreur lors de la mise à jour", 
+        description, 
+        variant: "destructive" 
+      });
     },
   });
 
@@ -335,208 +349,6 @@ export function TiersView() {
   );
 }
 
-// ─── Form Dialog ──────────────────────────────────────────────
 
-function TiersFormDialog({
-  open,
-  onClose,
-  tiers,
-  onSave,
-  isLoading,
-}: {
-  open: boolean;
-  onClose: () => void;
-  tiers: Tiers | null;
-  onSave: (body: Partial<Tiers>) => void;
-  isLoading: boolean;
-}) {
-  const isEdit = !!tiers;
-  const [form, setForm] = useState<Partial<Tiers>>({});
+// ─── Form Dialog has been moved to TiersFormDialog.tsx ────────────────────
 
-  // Reset form when tiers changes
-  useState(() => {
-    if (tiers) {
-      setForm({ ...tiers });
-    } else {
-      setForm({ type_tiers: "client", est_actif: true, devise: "XOF" });
-    }
-  });
-
-  // Re-init when dialog opens
-  const handleOpenChange = useCallback(() => {
-    if (open) {
-      if (tiers) {
-        setForm({ ...tiers });
-      } else {
-        setForm({ type_tiers: "client", est_actif: true, devise: "XOF" });
-      }
-    }
-  }, [open, tiers]);
-
-  // run on open
-  useState(handleOpenChange);
-
-  const update = (field: string, value: unknown) =>
-    setForm((prev) => ({ ...prev, [field]: value }));
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{isEdit ? "Modifier le tiers" : "Nouveau tiers"}</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4 mt-2">
-          {/* Main info */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label className="text-xs">Code *</Label>
-              <Input
-                value={form.code || ""}
-                onChange={(e) => update("code", e.target.value)}
-                placeholder="C001"
-                className="h-8 text-sm mt-1"
-                disabled={isEdit}
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Type *</Label>
-              <Select
-                value={form.type_tiers || "client"}
-                onValueChange={(v) => update("type_tiers", v)}
-              >
-                <SelectTrigger className="h-8 text-sm mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TYPES_TIERS.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Compte comptable</Label>
-              <Input
-                value={form.compte_comptable || ""}
-                onChange={(e) => update("compte_comptable", e.target.value)}
-                placeholder="401100"
-                className="h-8 text-sm font-mono mt-1"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Raison sociale *</Label>
-              <Input
-                value={form.raison_sociale || ""}
-                onChange={(e) => update("raison_sociale", e.target.value)}
-                placeholder="Société ABC SARL"
-                className="h-8 text-sm mt-1"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Nom commercial</Label>
-              <Input
-                value={form.nom_commercial || ""}
-                onChange={(e) => update("nom_commercial", e.target.value)}
-                placeholder="ABC"
-                className="h-8 text-sm mt-1"
-              />
-            </div>
-          </div>
-
-          {/* Contact */}
-          <div className="border-t pt-3">
-            <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Contact</p>
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <Label className="text-xs">Téléphone</Label>
-                <Input
-                  value={form.telephone || ""}
-                  onChange={(e) => update("telephone", e.target.value)}
-                  className="h-8 text-sm mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Email</Label>
-                <Input
-                  value={form.email || ""}
-                  onChange={(e) => update("email", e.target.value)}
-                  className="h-8 text-sm mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Ville</Label>
-                <Input
-                  value={form.ville || ""}
-                  onChange={(e) => update("ville", e.target.value)}
-                  className="h-8 text-sm mt-1"
-                />
-              </div>
-            </div>
-            <div className="mt-2">
-              <Label className="text-xs">Adresse</Label>
-              <Input
-                value={form.adresse || ""}
-                onChange={(e) => update("adresse", e.target.value)}
-                className="h-8 text-sm mt-1"
-              />
-            </div>
-          </div>
-
-          {/* Financial */}
-          <div className="border-t pt-3">
-            <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Conditions financières</p>
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <Label className="text-xs">Conditions paiement</Label>
-                <Input
-                  value={form.conditions_paiement || ""}
-                  onChange={(e) => update("conditions_paiement", e.target.value)}
-                  placeholder="30 jours fin de mois"
-                  className="h-8 text-sm mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Délai (jours)</Label>
-                <Input
-                  type="number"
-                  value={form.delai_paiement_jours || ""}
-                  onChange={(e) => update("delai_paiement_jours", Number(e.target.value) || 0)}
-                  className="h-8 text-sm mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Plafond crédit</Label>
-                <Input
-                  type="number"
-                  value={form.plafond_credit || ""}
-                  onChange={(e) => update("plafond_credit", Number(e.target.value) || 0)}
-                  className="h-8 text-sm mt-1"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex justify-end gap-2 mt-4 pt-3 border-t">
-          <Button variant="outline" size="sm" onClick={onClose}>
-            Annuler
-          </Button>
-          <Button
-            size="sm"
-            disabled={isLoading || !form.code || !form.raison_sociale}
-            onClick={() => onSave(form)}
-          >
-            {isLoading ? "Enregistrement..." : isEdit ? "Mettre à jour" : "Créer"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}

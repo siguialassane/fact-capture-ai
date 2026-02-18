@@ -37,6 +37,7 @@ interface ArticlesTableProps {
   totalHT?: string;
   totalTVA?: string;
   totalTTC?: string;
+  devise?: string;
 }
 
 export function ArticlesTable({
@@ -44,7 +45,8 @@ export function ArticlesTable({
   onArticleChange,
   totalHT,
   totalTVA,
-  totalTTC
+  totalTTC,
+  devise
 }: ArticlesTableProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -61,10 +63,15 @@ export function ArticlesTable({
     return parseFloat(val.replace(/[^\d,.-]/g, "").replace(",", ".")) || 0;
   };
 
-  // Helper pour formater en devise (ex: 15.00 -> "15,00 €")
-  // Note: On essaie de garder le symbole d'origine si possible, sinon € par défaut
+  // Helper pour formater en devise (détecte FCFA/XOF ou utilise la devise fournie)
   const formatAmount = (val: number) => {
-    return val.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €"; // Simplifié pour l'exemple
+    const formatted = val.toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    // Détecter si on est en zone FCFA/XOF
+    const currency = devise?.toUpperCase();
+    if (currency === 'XOF' || currency === 'FCFA' || currency === 'CFA' || !devise) {
+      return formatted + " FCFA";
+    }
+    return formatted + " " + (currency || "FCFA");
   };
 
   // Helper pour obtenir le montant TTC d'une ligne (montant_ttc ou total)
