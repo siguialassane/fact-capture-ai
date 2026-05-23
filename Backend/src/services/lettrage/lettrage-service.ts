@@ -16,8 +16,6 @@ import {
   type LettrageResult,
   type LettreFilter,
   type LettrageHistory,
-  canLettrer,
-  calculEcart,
 } from "./types";
 
 export * from "./types";

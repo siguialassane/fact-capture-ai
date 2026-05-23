@@ -3,6 +3,7 @@ export {
   analyzeInvoiceImage,
   analyzePDFImages,
   chatWithInvoice,
+  normalizeInvoiceData,
 } from "./analyzer.js";
 
 export * from "./types.js";

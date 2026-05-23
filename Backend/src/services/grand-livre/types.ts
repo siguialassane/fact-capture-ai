@@ -74,12 +74,10 @@ export interface Balance {
 
 /** Calcul du sens du solde selon la classe de compte */
 export function getSensSolde(
-  numeroCompte: string,
+  _numeroCompte: string,
   solde: number
 ): "debiteur" | "crediteur" | "nul" {
   if (solde === 0) return "nul";
-  
-  const classe = numeroCompte.charAt(0);
   
   // Classes normalement débitrices: 2 (Immo), 3 (Stocks), 5 (Tréso actif), 6 (Charges)
   // Classes normalement créditrices: 1 (Capitaux), 4 (Tiers passif), 7 (Produits)

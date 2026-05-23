@@ -6,6 +6,7 @@ import {
   chatWithInvoice,
   AnalyzeImageRequestSchema,
   ChatRequestSchema,
+  normalizeInvoiceData,
 } from "../services/ai/index.js";
 import { isOpenRouterConfigured } from "../config/env.js";
 import { Errors } from "../middleware/error-handler.js";
@@ -106,6 +107,7 @@ analysisRoutes.post(
 
     const { message, invoiceData, imageBase64, conversationHistory, forceReanalyze } =
       c.req.valid("json");
+    const normalizedInvoiceData = normalizeInvoiceData(invoiceData);
 
     console.log(`[Chat] Message: "${message.substring(0, 50)}..." (reanalyze: ${forceReanalyze})`);
 
@@ -114,7 +116,7 @@ analysisRoutes.post(
     const { response, updatedData } = await chatWithInvoice(
       message,
       {
-        invoiceData,
+        invoiceData: normalizedInvoiceData,
         imageBase64: imageBase64 ?? null,
         conversationHistory,
       },

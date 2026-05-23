@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { refineAccountingEntry, type AccountingResult } from "../../../services/accounting";
+import { refineAccountingEntry } from "../../../services/accounting";
 import { RefineEntrySchema } from "../schemas";
 import type { Hono } from "hono";
 

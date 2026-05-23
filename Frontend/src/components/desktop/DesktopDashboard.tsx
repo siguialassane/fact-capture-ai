@@ -202,7 +202,10 @@ export function DesktopDashboard() {
 
       // Analyze if not already analyzed
       if (record.image_base64 && isOpenRouterConfigured()) {
-        await analyzeImage(record.image_base64, record.id);
+        const result = await analyzeImage(record.image_base64, record.id);
+        if (result?.is_invoice) {
+          triggerPaymentStatusSelection(result);
+        }
       } else {
         setStatus("waiting");
       }
@@ -229,7 +232,10 @@ export function DesktopDashboard() {
               triggerPaymentStatusSelection(result);
             }
           } else if (supabaseRecord.image_base64 && isOpenRouterConfigured()) {
-            await analyzeImage(supabaseRecord.image_base64, supabaseRecord.id);
+            const result = await analyzeImage(supabaseRecord.image_base64, supabaseRecord.id);
+            if (result?.is_invoice) {
+              triggerPaymentStatusSelection(result);
+            }
           } else {
             setStatus("waiting");
           }

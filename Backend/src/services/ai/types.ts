@@ -12,6 +12,7 @@ export const ArticleSchema = z.object({
   taux_tva: z.string().optional(), // Taux TVA (ex: "20%")
   montant_tva: z.string().optional(), // Montant TVA de la ligne
   montant_ht: z.string().optional().default(""), // Montant HT de la ligne
+  montant_ttc: z.string().optional(), // Montant TTC de la ligne
   total: z.string().optional(), // Montant TTC ou final de la ligne
 });
 
@@ -54,6 +55,13 @@ export const InvoiceAIResultSchema = z.object({
   frais_port: z.string().optional(),
   
   total_ht: z.string().optional(),
+  tva_details: z.array(
+    z.object({
+      taux: z.string().optional(),
+      base_ht: z.string().optional(),
+      montant_tva: z.string().optional(),
+    })
+  ).optional(),
   total_tva: z.string().optional(),
   tva: z.string().optional().default(""),
   montant_total: z.string().optional().default(""),
@@ -76,6 +84,8 @@ export const InvoiceAIResultSchema = z.object({
   notes: z.string().optional(),
   ai_comment: z.string().optional().default(""),
   anomalies: z.array(z.string()).optional(),
+  donnees_manquantes: z.array(z.string()).optional(),
+  infos_complementaires: z.record(z.string()).optional(),
   extra_fields: z.record(z.string()).optional(),
 });
 
